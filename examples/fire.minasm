@@ -1,0 +1,19 @@
+dDetector = %i
+.if dDetector === null
+  i = 0
+  end
+.fi
+i += 1
+radar player any any distance dDetector 1 uPlayer
+bPlayerShooting = uPlayer.@shooting
+end bPlayerShooting == 0
+
+xShoot = uPlayer.@shootX
+yShoot = uPlayer.@shootY
+
+i = 0
+.do
+  dTarget = %i
+  i += 1
+  control shoot dTarget xShoot yShoot 1
+.when i < @links

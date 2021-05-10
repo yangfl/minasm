@@ -1,0 +1,99 @@
+# mWanted = @titanium
+mWanted = @thorium
+
+nProcessorID = @thisy * @mapw
+nProcessorID += @thisx
+
+.label begin
+i = -1
+
+.while
+  # read config
+  # .do
+  #   mWanted = sorter1.@config
+  # .when mWanted === null
+
+  # get link
+  i += 1
+.label redo
+  dTarget = %i
+  jump begin dTarget === null
+  .continue dTarget == sorter1
+  nTargetItems = dTarget.mWanted
+  nTargetCapacity = dTarget.@itemCapacity
+  .continue nTargetItems >= nTargetCapacity
+
+  # bind unit
+  uController = @unit.@controller
+  .if uController != @this
+    .do
+      ubind @flare
+      .continue @unit === null
+      bUnitControlled = @unit.@controlled
+      .continue bUnitControlled != 0
+    .until
+    ucontrol flag nProcessorID  # unit vaild
+  .fi
+  ucontrol boost 1
+
+  # take items
+  .do
+    # test if we already have the desired items
+    nUnitCapacity = @unit.@itemCapacity
+    mUnitItem = @unit.@firstItem
+    .if mUnitItem == mWanted
+      nUnitItems = @unit.@totalItems
+      .break nUnitItems >= nUnitCapacity
+      nTargetWants = nTargetCapacity - nTargetItems
+      .break nUnitItems >= nTargetWants
+    .fi
+
+    # take from core
+    .do
+      # move to core
+      ulocate building core false 0 xCore yCore bCoreFound dCore
+      ucontrol approach xCore yCore 5
+
+      # test if we lost control
+      uController = @unit.@controller
+      jump redo uController != @this
+
+      # drop unwanted
+      mUnitItem = @unit.@firstItem
+      .if mUnitItem != null
+        .if mUnitItem != mWanted
+          ucontrol itemDrop dCore nUnitCapacity
+          .continue
+        .fi
+      .fi
+
+      # take all
+      ucontrol itemTake dCore mWanted nUnitCapacity
+      nUnitItems = @unit.@totalItems
+    .until nUnitItems != 0
+  .until
+
+  # drop to target
+  xTarget = dTarget.@x
+  yTarget = dTarget.@y
+  .while
+    ucontrol itemDrop dTarget nUnitCapacity
+
+    # test if target is full
+    nTargetItems = dTarget.mWanted
+    .break nTargetItems >= nTargetCapacity
+
+    # test if target is gone
+    dCurrentTarget = %i
+    .break dCurrentTarget != dTarget
+
+    # test if we lost control
+    uController = @unit.@controller
+    jump redo uController != @this
+
+    # test if we do not have any items
+    nUnitItems = @unit.@totalItems
+    jump redo nUnitItems == 0
+    ucontrol approach xTarget yTarget 5
+  .done
+.done

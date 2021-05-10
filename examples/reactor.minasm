@@ -1,0 +1,92 @@
+print "[cyan]开关控制模块\n[blue]电网充满后自动关闭\n[cyan]当前电量百分比："
+
+nCapacity = battery1.@powerNetCapacity
+nStored = battery1.@powerNetStored
+nRatio = nStored / nCapacity
+nPrecentage = nRatio * 10000
+nPrecentage = floor nPrecentage
+nPrecentage /= 100
+print nPrecentage
+print "%\n"
+
+.if switch1 != null
+  bEnabled = switch1.@enabled
+  .if bEnabled == 0
+    print "[red]模块已禁用。"
+    jump disable
+  .fi
+.fi
+
+.if nRatio > 0.9
+  print "[yellow]电网充满，发电关闭。"
+.label disable
+  printflush message1
+  i = 0
+  .while
+    dBlock = %i
+    .break dBlock === null
+    i += 1
+    mBlockType = dBlock.@type
+    .continue mBlockType == @switch
+    .continue mBlockType == @battery
+    .continue mBlockType == @battery-large
+    control enabled dBlock 0
+  .done
+  end
+.fi
+
+print "[green]模块运行中。"
+bHasOverdrive = 0
+bAllThorium = 1
+bAllCool = 1
+i = 0
+.while
+  dBlock = %i
+  .break dBlock === null
+  i += 1
+
+  mBlockType = dBlock.@type
+  jump hasOverdrive mBlockType == @overdrive-projector
+  .if mBlockType == @overdrive-dome
+.label hasOverdrive
+    bHasOverdrive = 1
+    .continue
+  .fi
+
+  nCryofluid = dBlock.@cryofluid
+  .continue nCryofluid === null
+  .if nCryofluid < 2
+    control enabled dBlock 0
+    bAllCool = 0
+    .continue
+  .fi
+  control enabled dBlock 1
+
+  nThorium = dBlock.@thorium
+  .if nThorium == 0
+    bAllThorium = 0
+  .fi
+.done
+
+.if bAllThorium == 0
+  print "[orange]（钍不足）"
+.fi
+.if bAllCool == 0
+  print "[orange]（冷却不足）"
+.fi
+printflush message1
+
+.if bHasOverdrive != 0
+  bAllEnabled = bAllThorium and bAllCool
+  i = 0
+  .while
+    dBlock = %i
+    .break dBlock === null
+    i += 1
+    mBlockType = dBlock.@type
+    .if mBlockType != @overdrive-projector
+      .continue mBlockType != @overdrive-dome
+    .fi
+    control enabled dBlock bAllEnabled
+  .done
+.fi

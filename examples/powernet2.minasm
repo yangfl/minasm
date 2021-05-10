@@ -1,0 +1,57 @@
+i = 0
+.do
+  cell1[i] = 0
+  i += 1
+.when i < 64
+
+.label start
+
+in1 = node1.@powerNetIn
+out1 = node1.@powerNetOut
+in2 = node2.@powerNetIn
+out2 = node2.@powerNetOut
+
+in = in1 + in2
+out = out1 + out2
+net = in - out
+sum += net
+
+total += 1
+total %= 64
+
+tmp = cell1[total]
+sum -= tmp
+cell1[total] = net
+
+average = sum / 0.064
+average = floor average
+average /= 1000
+
+print "平均电网收支: "
+.if average >= 0
+  print "[green]+"
+.else
+  print "[red]"
+  require = abs average
+.fi
+print average
+.if average < 0
+  print "\n[]涡轮: [red]"
+  steam = require / 0.33
+  steam = ceil steam
+  steam /= 1000
+  print steam
+  print "\n[]钍反: [red]"
+  thorium = require / 0.9
+  thorium = ceil thorium
+  thorium /= 1000
+  print thorium
+  print "\n[]冲反: [red]"
+  impact = require / 7.8
+  impact = ceil impact
+  impact /= 1000
+  print impact
+.fi
+printflush message1
+
+jump start

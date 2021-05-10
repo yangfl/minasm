@@ -1,0 +1,52 @@
+mWanted = @scrap
+bAll = 1
+mUnit = @mega
+dTarget = vault1
+
+bEnabled = switch1.@enabled
+end bEnabled == 0
+
+.if bAll != 0
+  ubind mUnit
+  end @unit === null
+  bUnitControlled = @unit.@controlled
+  .if bUnitControlled != null
+    end bUnitControlled != @this
+  .fi
+.else
+  uController = @unit.@controller
+  .if uController != @this
+    .do
+      ubind mUnit
+      .continue @unit === null
+      bUnitControlled = @unit.@controlled
+      .continue bUnitControlled != 0
+    .until
+  .fi
+.fi
+ucontrol boost 1
+
+nUnitCapacity = @unit.@itemCapacity
+mUnitItem = @unit.@firstItem
+.do
+  .if mUnitItem != null
+    .break mUnitItem != mWanted
+  .fi
+  nUnitItems = @unit.@totalItems
+  .break nUnitItems >= nUnitCapacity
+  # mining
+  ulocate ore core true mWanted xOre yOre bOreFound
+  end bOreFound == 0
+  ucontrol mine xOre yOre
+  ucontrol move xOre yOre
+  end
+.until
+
+.if dTarget === null
+  ulocate building core false @copper xTarget yTarget bCoreFound dTarget
+.else
+  xTarget = dTarget.@x
+  yTarget = dTarget.@y
+.fi
+ucontrol itemDrop dTarget nUnitCapacity
+ucontrol approach xTarget yTarget 5

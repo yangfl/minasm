@@ -1,0 +1,19 @@
+jump test switch1 === null
+
+bEnabled = switch1.@enabled
+
+.if bEnabled != 0
+.label test
+  nCapacity1 = node1.@powerNetCapacity
+  nStored1 = node1.@powerNetStored
+  nRatio1 = nStored1 / nCapacity1
+  end nRatio1 > 0.1
+
+  nCapacity2 = node2.@powerNetCapacity
+  nStored2 = node2.@powerNetStored
+  nRatio2 = nStored2 / nCapacity2
+  end nRatio2 > 0.1
+.fi
+
+control enabled diode1 0
+control enabled diode2 0

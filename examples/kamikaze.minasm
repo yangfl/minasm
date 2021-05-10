@@ -1,0 +1,27 @@
+xTarget = @thisx
+yTarget = @thisy
+
+.while
+  ubind @horizon
+  ucontrol boost 1
+  nUnitItems = @unit.@totalItems
+  .if nUnitItems == 0
+    ulocate building core false 0 xCore yCore bCoreFound dCore
+    ucontrol approach xCore yCore 5
+    nUnitCapacity = @unit.@itemCapacity
+    ucontrol itemTake dCore @blast-compound nUnitCapacity
+    .break
+  .fi
+
+  uradar player ally any distance 0 1 uPlayerTemp
+  .if uPlayerTemp != null
+    uPlayer = uPlayerTemp
+  .fi
+  bShooting = uPlayer.@shooting
+  .if bShooting != 0
+    xTarget = uPlayer.@shootX
+    yTarget = uPlayer.@shootY
+  .fi
+
+  ucontrol approach xTarget yTarget 3
+.done
