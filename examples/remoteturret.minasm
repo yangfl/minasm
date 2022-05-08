@@ -199,8 +199,8 @@ nProcessorID += @thisx
 
     # try to find next block
     ulocate building turret false 0 xNewTarget yNewTarget bNewFound dNewTarget
-    mNewTargetType = dTarget.@type
     .if dNewTarget != dTarget
+      mNewTargetType = dNewTarget.@type
       .if mNewTargetType == mBlockType
         xTarget = xNewTarget
         yTarget = yNewTarget

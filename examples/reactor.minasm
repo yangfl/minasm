@@ -55,7 +55,7 @@ i = 0
 
   nCryofluid = dBlock.@cryofluid
   .continue nCryofluid === null
-  .if nCryofluid < 2
+  .if nCryofluid < 29
     control enabled dBlock 0
     bAllCool = 0
     .continue
