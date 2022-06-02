@@ -1,6 +1,68 @@
 'use strict'
 
-const Minasm = (function () {
+;(
+/**
+ * @param {string} name
+ * @param {string[]} requires
+ * @param {function} factory
+ * @param {string} onExist
+ */
+function (name, requires, factory, onExist = 'warn') {
+  let obj = null
+  let set = false
+
+  // Browser globals
+  if (typeof self === 'object' && self === self.self &&
+      requires.every(dep => dep in self)) {
+    set = true
+    if (!(name in self) || onExist === 'override') {
+      self[name] = factory(...requires.map(dep => self[dep]))
+    } else if (onExist === 'ignore') {
+      // do nothing
+    } else {
+      const msg =
+        'Module ' + name + ' already exists in the global scope.'
+      if (onExist === 'error') {
+        throw Error(msg)
+      } else {
+        console.warn(msg)
+      }
+    }
+    obj = self[name]
+  }
+
+  // Node. Does not work with strict CommonJS, but
+  // only CommonJS-like environments that support module.exports,
+  // like Node.
+  if (typeof module === 'object' && module.exports) {
+    set = true
+    if (!obj) {
+      obj = factory(...requires.map(dep => require(dep)))
+      if (typeof self === 'object' && self === self.self) {
+        self[name] = obj
+      }
+    }
+    module.exports = obj
+  }
+
+  // AMD.
+  if (typeof define === 'function' && define.amd) {
+    set = true
+    define(name, requires, function (...args) {
+      if (!obj) {
+        obj = factory(...args)
+        if (typeof self === 'object' && self === self.self) {
+          self[name] = obj
+        }
+      }
+      return obj
+    })
+  }
+
+  if (!set) {
+    throw Error('Could not set module ' + name)
+  }
+})('Minasm', [], function () {
   /**
    * Match a string against a regular expression from the given position and
    * return the match.
@@ -60,7 +122,7 @@ const Minasm = (function () {
       'notEqual', 'land', 'lessThan', 'lessThanEq',
       'greaterThan', 'greaterThanEq', 'strictEqual', 'shl',
       'shr', 'or', 'and', 'xor',
-      'flip', 'max', 'min', 'angle',
+      'not', 'max', 'min', 'angle',
       'len', 'noise', 'abs', 'log',
       'log10', 'floor', 'ceil', 'sqrt',
       'rand', 'sin', 'cos', 'tan',
@@ -97,8 +159,8 @@ const Minasm = (function () {
   }
 
   /**
-   * @implements {Iterator<Token, undefined>}
-   * @implements {Iterable<Token>}
+   * @implements {Iterator<[number, Token], undefined>}
+   * @implements {Iterable<[number, Token]>}
    */
   class TokenIterator {
     /**
@@ -130,14 +192,18 @@ const Minasm = (function () {
 
     next () {
       while (this.i >= 0) {
-        const token = new Token(this.str, this.i)
-        if (this.i >= token.end) {
+        const [type, end] = Token.detect(this.str, this.i)
+        if (this.i >= end) {
           debugger
           throw Error('internal error')
         }
-        this.i = token.end >= this.str.length ? -1 : token.end
-        if (this.keepWhitespace || token.type !== Token.WHITESPACE) {
-          return {done: false, value: token}
+        const start = this.i
+        this.i = end >= this.str.length ? -1 : end
+        if (this.keepWhitespace || type !== Token.WHITESPACE) {
+          return {
+            done: false,
+            value: [start, new Token(this.str.substring(start, end), type)]
+          }
         }
       }
       return {done: true}
@@ -156,47 +222,20 @@ const Minasm = (function () {
     static COMMENT = 5
 
     /**
-     * @param {string} code Original code.
-     * @param {number} start Start index.
-     * @param {number} end End index.
+     * @param {string} str Token content.
      * @param {number} type Token type.
-     * @throws {RangeError} If `start` invalid.
      */
-    constructor (code, start = 0, end = -1, type = 0) {
-      if (start >= code.length || start < 0) {
-        throw RangeError('start index ' + start + ' invalid')
-      }
-
+    constructor (str, type = Token.IDENTIFIER) {
       /**
        * token type
        * @type {number}
        */
       this.type = type
       /**
-       * original code
+       * token content
        * @type {string}
        */
-      this.code = code
-      /**
-       * start index
-       * @type {number}
-       */
-      this.start = start
-      /**
-       * end index
-       * @type {number}
-       */
-      this.end = end
-
-      if (end < 0 || type === 0) {
-        [this.type, this.end] = Token.detect(code, start)
-      } else if (end === 0) {
-        this.end = this.code.length
-      }
-    }
-
-    static make (str, type = Token.IDENTIFIER) {
-      return new Token(str, 0, str.length, type)
+      this.str = str
     }
 
     /**
@@ -281,14 +320,22 @@ const Minasm = (function () {
      * @param {string} str Input string.
      * @param {boolean} keepWhitespace Whether to keep whitespace tokens.
      * @param {number} start Starting position.
-     * @returns {Iterable<Token>} Tokens.
+     * @returns {Iterable<[number, Token]>} Tokens.
      */
     static split (str, keepWhitespace = false, start = 0) {
       return new TokenIterator(str, keepWhitespace, start)
     }
 
+    /**
+     * whether this token is an immediate value
+     * @type {boolean}
+     */
+    get isImm () {
+      return this.type === Token.NUMERIC || this.type === Token.STRING
+    }
+
     toString () {
-      return this.code.slice(this.start, this.end)
+      return this.str
     }
 
     toNumber () {
@@ -296,8 +343,14 @@ const Minasm = (function () {
     }
 
     toValue () {
-      return this.type !== Token.NUMERIC ?
-        this.toString() : Number(this.toString())
+      switch (this.type) {
+        case Token.NUMERIC:
+          return Number(this.toString())
+        case Token.STRING:
+          return JSON.parse(this.toString())
+        default:
+          return this.toString()
+      }
     }
 
     /**
@@ -306,7 +359,8 @@ const Minasm = (function () {
      * @returns {boolean} `true` if matched.
      */
     match (want) {
-      return typeof want === 'string' ? want === this.str : want === this.type
+      return typeof want === 'string' ?
+        want === this.toString() : want === this.type
     }
   }
 
@@ -337,7 +391,9 @@ const Minasm = (function () {
      * @returns {Line} Parsed line.
      */
     static fromString (str) {
-      return new Line(Token.split(str), str.match(/^\s+/)?.[0] || undefined)
+      return new Line(
+        Array.from(Token.split(str)).map(x => x[1]),
+        str.match(/^\s+/)?.[0] || undefined)
     }
 
     toString () {
@@ -422,7 +478,7 @@ const Minasm = (function () {
 
     static reverseConditionToken = new Map(
       Array.from(Instruction.reverseCondition)
-       .map(([key, value]) => [key, Token.make(value)]))
+       .map(([key, value]) => [key, new Token(value)]))
 
     static operators = new Map(Object.entries({
       // core/src/mindustry/logic/LogicOp.java
@@ -456,16 +512,21 @@ const Minasm = (function () {
 
     static operatorTokens = new Map(
       Array.from(Instruction.operators)
-        .map(([key, value]) => [key, Token.make(value)]))
+        .map(([key, value]) => [key, new Token(value)]))
 
-    static padding = Token.make('0', Token.NUMERIC)
     static tokenAlways = Instruction.reverseConditionToken.get('never')
     static tokenNever = Instruction.reverseConditionToken.get('always')
+    static tokenNotEqual = Instruction.reverseConditionToken.get('equal')
+
+    static padding = new Token('0', Token.NUMERIC)
+    static tokenCounter = new Token('@counter')
+    static tokenFalse = new Token('false')
+    static tokenLabelStart = new Token('_start')
 
     /**
      * @param {string} op Instruction operator.
      * @param {Token[]} args Instruction arguments.
-     * @param {number} index Line number, for debugging.
+     * @param {number} index Line number, for debugging and code gen.
      * @param {string} indent Indentation, for code gen.
      * @param {Token[]} tokens Original tokens, for code gen.
     */
@@ -480,6 +541,7 @@ const Minasm = (function () {
        * @type {Token[]}
        */
       this.args = Array.isArray(args) ? args : Array.from(args)
+
       /**
        * next instruction, also the false branch when instruction is a jump
        * @type {Instruction?}
@@ -491,12 +553,18 @@ const Minasm = (function () {
        */
       this.branch = null
       /**
+       * disable dead code elimination
+       * @type {boolean}
+       */
+      this.noOptimize = false
+
+      /**
        * jump label, for debugging
        * @type {string}
        */
       this.label = null
       /**
-       * line number, for debugging
+       * line number, for debugging and code gen
        * @type {number}
        */
       this.index = index
@@ -532,6 +600,9 @@ const Minasm = (function () {
         const result = args.slice()
         result[0] = newTokenOp
         return result
+      }
+      if (args.length === 1) {
+        return [Instruction.tokenNotEqual, args[0], Instruction.tokenFalse]
       }
       return null
     }
@@ -595,6 +666,7 @@ const Minasm = (function () {
         return null
       }
 
+      const token2Str = tokens[2].toString()
       let op
       if (assign === '=') {
         if (tokens.length === 2) {
@@ -602,7 +674,7 @@ const Minasm = (function () {
           // 0 1
           return ['set', args]
         }
-        if (tokens[2].toString() === '%') {
+        if (token2Str === '%') {
           // x = % y
           // 0 1 2 3
           return ['getlink', args.concat(tokens.slice(3))]
@@ -612,10 +684,21 @@ const Minasm = (function () {
           // 0 1 2
           return ['set', [tokens[0], tokens[2]]]
         }
-        if (opcodes.op.includes(tokens[2].toString())) {
+        if (opcodes.op.includes(token2Str)) {
           // x = op y
           // 0 1 2  3
           args = [tokens[2], tokens[0]].concat(tokens.slice(3))
+          while (args.length < 4) {
+            args.push(Instruction.padding)
+          }
+          return ['op', args]
+        }
+        if (Instruction.operatorTokens.has(token2Str)) {
+          // x = . y
+          // 0 1 2 3
+          args = [
+            Instruction.operatorTokens.get(token2Str), tokens[0]
+          ].concat(tokens.slice(3))
           while (args.length < 4) {
             args.push(Instruction.padding)
           }
@@ -640,7 +723,7 @@ const Minasm = (function () {
         args.splice(3, 1)
         return ['read', args]
       }
-      args.unshift(Instruction.operatorTokens.get(op) || Token.make(op, 0))
+      args.unshift(Instruction.operatorTokens.get(op) || new Token(op, 0))
       return ['op', args]
     }
 
@@ -697,8 +780,9 @@ const Minasm = (function () {
         case 'uradar':
           break
         default:
-          return Instruction.decodeAssignment(tokens) ||
-            [tokens[0].toString(), tokens.slice(1)]
+          args.unshift(tokens[0])
+          return Instruction.decodeAssignment(args) ||
+            [tokens[0].toString(), args.slice(1)]
       }
 
       return [op, args]
@@ -717,6 +801,75 @@ const Minasm = (function () {
      */
     get isJump () {
       return this.op === 'jump'
+    }
+
+    /**
+     * get jump direction, <0 is branch, 0 is conditional, >0 is next
+     * @type {number}
+     */
+    get jumpDirection () {
+      if (this.args.length === 0) {
+        return -1
+      }
+      if (this.args[0].type !== Token.IDENTIFIER) {
+        return 0
+      }
+
+      const op = this.args[0].toString()
+      switch (op) {
+        case 'always':
+          return -1
+        case 'never':
+          return 1
+      }
+
+      if (this.args.length < 3) {
+        return 0
+      }
+      const isStrictEqual =
+        this.args[1].type === this.args[2].type &&
+        this.args[1].toValue() === this.args[2].toValue()
+      const isEqual =
+        isStrictEqual || this.args[1].toValue() == this.args[2].toValue()
+      const isImm = this.args[1].isImm && this.args[2].isImm
+      let ret = 0
+      switch (op) {
+        case 'equal':
+          if (isImm) {
+            ret = isEqual ? -1 : 1
+          } else if (isStrictEqual) {
+            ret = -1
+          }
+          break
+        case 'strictEqual':
+          if (isImm) {
+            ret = isStrictEqual ? -1 : 1
+          } else if (isStrictEqual) {
+            ret = -1
+          }
+          break
+        case 'notEqual':
+          if (isImm) {
+            ret = isEqual ? 1 : -1
+          } else if (isStrictEqual) {
+            ret = 1
+          }
+          break
+        case 'strictNotEqual':
+          if (isImm) {
+            ret = isStrictEqual ? 1 : -1
+          } else if (isStrictEqual) {
+            ret = 1
+          }
+          break
+      }
+      if (ret < 0) {
+        this.args.length = 0
+      } else if (ret > 0) {
+        this.args.length = 1
+        this.args[0] = Instruction.tokenNever
+      }
+      return ret
     }
 
     /**
@@ -740,29 +893,38 @@ const Minasm = (function () {
     /**
      * Get the branch target of this instruction, if this instruction is an
      * unconditional jump.
-     * @param {boolean} initiator Loop detector.
+     * @param {boolean} jumpCallee Whether callee instruction is a jump.
+     * @param {Instruction} initiator Loop detector.
      * @returns {Instruction?} Target instruction, or null if not an
      *  unconditional jump.
      */
-    getBranch (initiator = null) {
-      if (!this.isJump || (this.args.length &&
-          !['always', 'never'].includes(this.args[0].toString()))) {
-        // not a unconditional jump
-        return null
-      }
+    getTarget (jumpCallee = false, initiator = null) {
       if (initiator === this) {
         // loop detected
         return this
       }
+      if (!this.isJump) {
+        // not a jump
+        return null
+      }
+      if (!jumpCallee && this.noOptimize) {
+        // prevent jump optimization
+        return null
+      }
+      const jumpDirection = this.jumpDirection
+      if (jumpDirection == 0) {
+        // not an unconditional jump
+        return null
+      }
 
-      if (this.args[0]?.toString() === 'never') {
-        const target = this.next?.getBranch(initiator || this)
+      if (jumpDirection > 0) {
+        const target = this.next?.getTarget(true, initiator || this)
         if (target) {
           this.next = target
         }
         return this.next
       } else {
-        const target = this.branch?.getBranch(initiator || this)
+        const target = this.branch?.getTarget(true, initiator || this)
         if (target) {
           this.branch = target
         }
@@ -802,12 +964,15 @@ const Minasm = (function () {
       if (this.args.length === 0) {
         this.args.push(Instruction.tokenNever)
       } else {
-        this.args[0] = Instruction.reverseConditionToken.get(
-          this.args[0].toString()) || this.args[0]
-        if (this.args[0] === Instruction.tokenAlways) {
+        const reversedConditionToken = Instruction.reverseConditionToken.get(
+          this.args[0].toString())
+        if (reversedConditionToken === Instruction.tokenAlways) {
           this.args.length = 0
+        } else if (reversedConditionToken) {
+          this.args[0] = reversedConditionToken
         }
       }
+
       const tmp = this.next
       this.next = this.branch
       this.branch = tmp
@@ -819,18 +984,19 @@ const Minasm = (function () {
      * @returns {boolean} Whether the branch targets were changed.
      */
     normalize () {
+      const jumpDirection = this.isJump ? this.jumpDirection : 0
+
       const oldNext = this.next
       do {
-        if (!this.next?.getBranch) {
+        if (!this.next?.getTarget) {
           break
         }
-        if (this.isJump && (
-            this.args.length === 0 || this.args[0].toString() === 'always')) {
+        if (this.isJump && !this.noOptimize && jumpDirection < 0) {
           this.next = null
           break
         }
 
-        const next = this.next.getBranch()
+        const next = this.next.getTarget(this.isJump)
         if (!next) {
           break
         }
@@ -844,22 +1010,21 @@ const Minasm = (function () {
 
       const oldBranch = this.branch
       do {
-        if (!this.branch?.getBranch) {
+        if (!this.branch?.getTarget) {
           break
         }
-        if (this.isJump && this.args.length !== 0 &&
-            this.args[0].toString() === 'never') {
+        if (this.isJump && !this.noOptimize && jumpDirection > 0) {
           this.branch = null
           break
         }
 
-        const branch = this.branch.getBranch()
+        const branch = this.branch.getTarget(this.isJump)
         if (!branch) {
           break
         }
         if (this.isJump && branch === this.next) {
-          this.args.length = 0
-          this.args.push(Instruction.tokenNever)
+          this.args[0] = Instruction.tokenNever
+          this.args.length = 1
           this.branch = null
           break
         }
@@ -867,16 +1032,16 @@ const Minasm = (function () {
       } while (false)
 
       const normalized = oldNext !== this.next || oldBranch !== this.branch
-      if (this.isJump && this.next?.getBranch) {
-        if (!this.branch?.getBranch) {
+      if (this.isJump && this.next?.getTarget) {
+        if (!this.branch?.getTarget) {
           this.reverseJump()
         } else {
           const b = this.branch.index - this.index
           const n = this.next.index - this.index
           // -2 -1 0 +1 +2
           // branch next   action
-          // -2     -1     n
-          // -1      0     n
+          // -2     -1     y
+          // -1      0     y
           // -1     +1     n
           //  0     +1     n
           // +1     +2     y
@@ -884,9 +1049,15 @@ const Minasm = (function () {
           // +2     +1     n
           // +1      0     y
           // +1     -1     y
-          //  0     -1     y
-          // -1     -2     y
-          if (b > 0 && n > 0 ? b < n : b > n) {
+          //  0     -1     n
+          // -1     -2     n
+          if (b === n) {
+            // do nothing
+          } else if (b === 0 || n === 0) {
+            if (n === 0) {
+              this.reverseJump()
+            }
+          } else if (b * n > 0 ? b < n : b > n) {
             this.reverseJump()
           }
         }
@@ -949,6 +1120,7 @@ const Minasm = (function () {
        * @type {Map<string, Instruction>}
        */
       this.labels = new Map
+      this.labels.set(Instruction.tokenLabelStart.toString(), this.head)
       /**
        * instructions that within this relative line number range
        * @type {Instruction[]}
@@ -960,6 +1132,11 @@ const Minasm = (function () {
        * @type {string?}
        */
       this.label = null
+      /**
+       * disable dead code elimination
+       * @type {boolean}
+       */
+      this.noOptimize = false
 
       /**
        * source block stack
@@ -978,6 +1155,18 @@ const Minasm = (function () {
     }
 
     /**
+     * @param {string} name
+     * @param {Instruction} begin
+     * @param {Instruction[]} end
+     * @returns {ProgramBlock}
+     */
+    addBlock (name, begin, end = []) {
+      const block = [name, begin, end]
+      this.stack.push(block)
+      return block
+    }
+
+    /**
      * @param {ProgramBlock?} block
      * @param {string | string[]} blockStart
      * @returns {boolean}
@@ -993,6 +1182,7 @@ const Minasm = (function () {
      * @param {string} blockEnd
      * @param {number} lineNumber
      * @returns {ProgramBlock}
+     * @throws {CompilerError}
      */
     static testBlock (block, blockStart, blockEnd, lineNumber = -1) {
       if (!Program.matchBlock(block, blockStart)) {
@@ -1037,24 +1227,31 @@ const Minasm = (function () {
 
     /**
      * @param {Instruction} inst
+     * @param {boolean} endLike
      */
-    push (inst) {
+    push (inst, endLike = false) {
+      inst.noOptimize = this.noOptimize
+
+      // end block
       while (this.blockEnds.length !== 0) {
         this.blockEnds.pop().branch = inst
       }
+
       // link against tail
       if (this.tail) {
         this.tail.next = inst
       }
-      this.tail = inst
+      this.tail = endLike && !this.noOptimize ? null : inst
+
       // mark instruction by label
       if (this.label) {
         inst.label = this.label
         this.labels.set(this.label, inst)
         this.label = null
       }
+
+      // mark relative line number
       if (!inst.isMacro) {
-        // mark relative line number
         this.relinsts.push(inst)
       }
     }
@@ -1162,7 +1359,7 @@ const Minasm = (function () {
        * name of stack pointer
        * @type {Token}
        */
-      let stackPointer = Token.make('__stack_pointer')
+      let stackPointer = new Token('__stack_pointer')
 
       const program = new Program
 
@@ -1185,7 +1382,7 @@ const Minasm = (function () {
             inst.branch = branch.toValue()
           } else if (op === 'end') {
             inst.op = 'jump'
-            inst.branch = program.head
+            inst.branch = Instruction.tokenLabelStart.toString()
           }
           program.push(inst)
           continue
@@ -1211,7 +1408,8 @@ const Minasm = (function () {
           case 'label':
             if ([Token.IDENTIFIER, Token.STRING].includes(token2?.type)) {
               program.label = token2.toString()
-              if (program.labels.has(program.label)) {
+              if (program.labels.has(program.label) &&
+                  !program.label.startsWith('_')) {
                 throw new CompilerError(
                   'duplicate label `' + program.label + "'", i,
                   program.labels.get(program.label).index - 1)
@@ -1221,8 +1419,8 @@ const Minasm = (function () {
             if (macro === 'fun') {
               program.push(new Instruction(
                 'op', [
-                  Token.make('sub'), stackPointer, stackPointer,
-                  Token.make('1', Token.NUMERIC)], i, indent, tokens))
+                  new Token('sub'), stackPointer, stackPointer,
+                  new Token('1', Token.NUMERIC)], i, indent, tokens))
             }
             break
           case 'rel':
@@ -1231,12 +1429,12 @@ const Minasm = (function () {
           // stack push pop
           case 'stack':
             if (token2?.type === Token.IDENTIFIER) {
-              stackCell = Token.make(token2.toString())
+              stackCell = new Token(token2.toString())
               const stackSize = tokens[3]?.toNumber() || 64
               program.push(new Instruction(
                 'set', [
                   stackPointer,
-                  Token.make((stackSize - 1).toString(), Token.NUMERIC)
+                  new Token((stackSize - 1).toString(), Token.NUMERIC)
                 ], i, indent, tokens))
             }
             break
@@ -1247,13 +1445,13 @@ const Minasm = (function () {
             if (token2) {
               program.push(new Instruction(
                 'write', [
-                  Token.make(token2.toString()), stackCell, stackPointer],
+                  new Token(token2.toString()), stackCell, stackPointer],
                 i, indent, tokens))
             }
             program.push(new Instruction(
               'op', [
-                Token.make('sub'), stackPointer, stackPointer,
-                Token.make('1', Token.NUMERIC)], i + 0.5, indent, tokens))
+                new Token('sub'), stackPointer, stackPointer,
+                new Token('1', Token.NUMERIC)], i + 0.5, indent, tokens))
             break
           }
           case 'pushn': {
@@ -1262,8 +1460,8 @@ const Minasm = (function () {
             }
             program.push(new Instruction(
               'op', [
-                Token.make('sub'), stackPointer, stackPointer,
-                token2 || Token.make('1', Token.NUMERIC)], i, indent, tokens))
+                new Token('sub'), stackPointer, stackPointer,
+                token2 || new Token('1', Token.NUMERIC)], i, indent, tokens))
             break
           }
           case 'pop': {
@@ -1272,12 +1470,12 @@ const Minasm = (function () {
             }
             program.push(new Instruction(
               'op', [
-                Token.make('add'), stackPointer, stackPointer,
-                Token.make('1', Token.NUMERIC)], i, indent, tokens))
+                new Token('add'), stackPointer, stackPointer,
+                new Token('1', Token.NUMERIC)], i, indent, tokens))
             if (token2) {
               program.push(new Instruction(
                 'read', [
-                  Token.make(token2.toString()), stackCell, stackPointer],
+                  new Token(token2.toString()), stackCell, stackPointer],
                 i + 0.5, indent, tokens))
             }
             break
@@ -1288,8 +1486,8 @@ const Minasm = (function () {
             }
             program.push(new Instruction(
               'op', [
-                Token.make('add'), stackPointer, stackPointer,
-                token2 || Token.make('1', Token.NUMERIC)], i, indent, tokens))
+                new Token('add'), stackPointer, stackPointer,
+                token2 || new Token('1', Token.NUMERIC)], i, indent, tokens))
             break
           }
           // call ret
@@ -1307,10 +1505,9 @@ const Minasm = (function () {
 
             const inst = new Instruction('jump', [], i, indent, tokens)
             inst.branch = token2.toString()
-            program.push(inst)
+            program.push(inst, true)
 
             program.blockEnds.push(instSave)
-            program.tail = null
             break
           }
           case 'retl':
@@ -1322,15 +1519,13 @@ const Minasm = (function () {
             if (macro === 'ret') {
               program.push(new Instruction(
                 'op', [
-                  Token.make('add'), stackPointer, stackPointer,
-                  Token.make('1', Token.NUMERIC)], i, indent, tokens))
+                  new Token('add'), stackPointer, stackPointer,
+                  new Token('1', Token.NUMERIC)], i, indent, tokens))
             }
             program.push(new Instruction(
               'read', [
-                Token.make('@counter'), stackCell, stackPointer],
-              i + 0.5, indent, tokens))
-
-            program.tail = null
+                Instruction.tokenCounter, stackCell, stackPointer],
+              i + 0.5, indent, tokens), true)
             break
           }
           // int reti
@@ -1341,17 +1536,16 @@ const Minasm = (function () {
             const handler = token2.toString()
 
             const instSave = new Instruction(
-              'set', [Token.make(interruptPrefix + handler)], i, indent, tokens)
+              'set', [new Token(
+                interruptPrefix + (tokens[3]?.toString() || handler))],
+              i, indent, tokens)
             program.push(instSave)
 
-            const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(3)),
-              i + 0.5, indent, tokens)
+            const inst = new Instruction('jump', [], i + 0.5, indent, tokens)
             inst.branch = handler
-            program.push(inst)
+            program.push(inst, true)
 
             program.blockEnds.push(instSave)
-            program.tail = null
             break
           }
           case 'reti': {
@@ -1362,10 +1556,8 @@ const Minasm = (function () {
 
             program.push(new Instruction(
               'set', [
-                Token.make('@counter'), Token.make(interruptPrefix + handler)],
-              i, indent, tokens))
-
-            program.tail = null
+                Instruction.tokenCounter, new Token(interruptPrefix + handler)],
+              i, indent, tokens), true)
             break
           }
           /*******
@@ -1388,7 +1580,7 @@ const Minasm = (function () {
             inst.reverseJump()
             program.push(inst)
 
-            program.stack.push(['if', inst, [inst]])
+            program.addBlock('if', inst, [inst])
             break
           }
           case 'elif': {
@@ -1478,15 +1670,17 @@ const Minasm = (function () {
             inst.reverseJump()
             program.push(inst)
 
-            program.stack.push(['while', inst, [inst]])
+            program.addBlock('while', inst, [inst])
             break
           }
           case 'done': {
             const block = program.testBlock('while', 'done', i)
 
-            const inst = new Instruction('jump', [], i, indent, tokens)
-            inst.branch = block[1]
+            const inst = new Instruction(
+              'jump', block[1].args.slice(), i, indent, tokens)
+            inst.reverseJump()
             program.push(inst)
+            inst.branch = block[1].next
 
             program.endBlock()
             break
@@ -1503,7 +1697,7 @@ const Minasm = (function () {
               'jump', [Instruction.tokenNever], i, indent, tokens)
             program.push(inst)
 
-            program.stack.push(['do', inst, []])
+            program.addBlock('do', inst)
             break
           }
           case 'when': {
@@ -1527,6 +1721,39 @@ const Minasm = (function () {
             inst.reverseJump()
             inst.branch = block[1]
             program.push(inst)
+
+            program.endBlock()
+            break
+          }
+          // case stop esac
+          case 'case': {
+            const inst = token2 ?
+              new Instruction(
+                'op', [new Token('add'), Instruction.tokenCounter,
+                       Instruction.tokenCounter, token2],
+                i, indent, tokens) :
+              new Instruction(
+                'jump', [Instruction.tokenNever], i, indent, tokens)
+            program.push(inst)
+            program.addBlock('case', inst)
+            program.noOptimize = true
+
+            break
+          }
+          case 'stop': {
+            const block = program.findBlock('case', 'stop', i)
+
+            const inst = new Instruction(
+              'jump', Instruction.decodeCondition(tokens.slice(2)),
+              i, indent, tokens)
+            program.push(inst)
+
+            block[2].push(inst)
+            break
+          }
+          case 'esac': {
+            const block = program.testBlock('case', 'esac', i)
+            program.noOptimize = false
 
             program.endBlock()
             break
@@ -1585,29 +1812,34 @@ const Minasm = (function () {
           }
 
           const op = inst.args[0].toString()
-          if (op === 'always') {
-            if (inst.branch === insts[0]) {
-              inst.op = 'end'
-              inst.args.length = 0
-            } else {
-              inst.args[1] ||= Instruction.padding
-              inst.args[2] ||= Instruction.padding
-            }
-            continue
-          }
-
-          if (op === 'strictNotEqual') {
-            inst.args[0] = Instruction.reverseConditionToken.get('equal')
+          switch (op) {
+            case 'always':
+              if (inst.branch === insts[0]) {
+                inst.op = 'end'
+                inst.args.length = 0
+              } else {
+                inst.args[1] ||= Instruction.padding
+                inst.args[2] ||= Instruction.padding
+              }
+              break
+            case 'strictNotEqual':
+              inst.args[0] = Instruction.reverseConditionToken.get('equal')
+              break
+            case 'never':
+              inst.args[0] = Instruction.reverseConditionToken.get('equal')
+              inst.args[1] = Instruction.padding
+              inst.args[2] = Instruction.padding
+              break
           }
         } else if (inst.op === 'set') {
           if (inst.branch) {
-            inst.args.push(Token.make(
+            inst.args.push(new Token(
               inst.branch.index.toString(), Token.NUMERIC))
             inst.branch = null
           }
         } else if (inst.op === 'write') {
           if (inst.branch) {
-            inst.args.unshift(Token.make(
+            inst.args.unshift(new Token(
               inst.branch.index.toString(), Token.NUMERIC))
             inst.branch = null
           }
@@ -1624,9 +1856,8 @@ const Minasm = (function () {
       memory: 'A08A8A', block: 'D4816B', variable: '877BAD',
       flow: '6BB2B2', unit: 'C7B59D',
     },
-
     opcodes,
 
     Token, Instruction, CompilerError, Program,
   }
-})()
+})

@@ -1,12 +1,12 @@
 mWanted = @scrap
-bAll = 1
+bAll = true
 mUnit = @mega
-dTarget = vault1
+dTarget = %0
 
 bEnabled = switch1.@enabled
-end bEnabled == 0
+end bEnabled == false
 
-.if bAll != 0
+.if bAll
   ubind mUnit
   end @unit === null
   bUnitControlled = @unit.@controlled

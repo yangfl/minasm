@@ -1,0 +1,58 @@
+print "by awa\n"
+print "烧核心物品，必须链接核心本体（不能是容器）"
+printflush message1
+
+i = 0
+.do
+  .if i >= @links
+    i = 0
+    .do
+      dBlock = %i
+      i += 1
+      control enabled dBlock false
+    .when i < @links
+    i = 0
+  .fi
+  dCore = %i
+  i += 1
+  nCapacity = dCore.@itemCapacity
+.until nCapacity >= 4000
+
+iItem = 0
+.do
+  lookup item mItem iItem
+  iItem += 1
+  iItem %= @itemCount
+
+  nItem = dCore.mItem
+  nDiff = nCapacity - nItem
+
+  .if nDiff <= 1000
+    mMinItem = mItem
+    i = 0
+    .do
+      dBlock = %i
+      i += 1
+      control enabled dBlock true
+      control config dBlock mItem
+    .when i < @links
+  .else
+    .do
+      .if mMinItem !== null
+        nItem = dCore.mMinItem
+        nDiff = nCapacity - nItem
+        .break nDiff <= 1000
+        mMinItem = null
+      .fi
+
+      i = 0
+      .do
+        dBlock = %i
+        i += 1
+        control enabled dBlock false
+      .when i < @links
+    .until
+  .fi
+
+  bCoreDead = dCore.@dead
+.until bCoreDead

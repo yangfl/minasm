@@ -11,11 +11,11 @@ i = 0
 
 .do
   cell1[1] = i
-  
+
   cell1[0] = 2
   .do
     bRunning = cell1[0]
-  .until bRunning == 0
-  
+  .until bRunning == false
+
   i += 16
 .when i < 704

@@ -18,9 +18,8 @@ nProcessorID += @thisx
       bUnitControlled = @unit.@controlled
       .continue bUnitControlled != 0
     .until
-    ucontrol flag nProcessorID  # unit vaild
+    ucontrol flag nProcessorID  # unit valid
   .fi
-  ucontrol boost 1
 
   # take items
   .do
@@ -56,7 +55,7 @@ nProcessorID += @thisx
       # take all
       ucontrol itemTake dCore mWanted nUnitCapacity
       nUnitItems = @unit.@totalItems
-    .until nUnitItems != 0
+    .until nUnitItems
   .until
 
   .if xTarget == 0
@@ -67,7 +66,7 @@ nProcessorID += @thisx
   .fi
 
 .label move
-  # move to a vaild block
+  # move to a valid block
   .do
     # move to (last) target
     .do
@@ -77,7 +76,7 @@ nProcessorID += @thisx
 
       ucontrol move xTarget yTarget
       ucontrol within xTarget yTarget 5 bWithin
-    .until bWithin != 0
+    .until bWithin
 
     # detect new block
     xTargetOld = xTarget
@@ -210,7 +209,7 @@ nProcessorID += @thisx
 
     # test if we reach the edge of the map
     ucontrol within xApproach yApproach 5 bWithin
-    .if bWithin != 0
+    .if bWithin
       xTarget = 0
       .break
     .fi

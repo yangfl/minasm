@@ -1,0 +1,125 @@
+mWanted = @titanium
+# mWanted = @thorium
+mUnit = @flare
+
+nUintFlag = @thisy * @mapw
+nUintFlag += @thisx
+
+.label _start
+
+i = 0
+.while i < @links
+  # read config
+  # .do
+  #   mWanted = sorter1.@config
+  # .when mWanted === null
+
+  # get link
+  dTarget = %i
+  i += 1
+
+  nTargetCapacity = dTarget.@itemCapacity
+  .if nTargetCapacity >= 10
+    nTargetItems = dTarget.mWanted
+    .while nTargetItems < nTargetCapacity
+      .int bindOne
+      .int carrier
+      bTargetDead = dTarget.@dead
+      .break bTargetDead
+    .done
+  .fi
+.done
+
+end
+
+.label bindAll mUnit
+.while
+  .do
+    ubind mUnit
+  .until @unit !== null
+  bindAll_uController = @unit.@controller
+  .break bindAll_uController == @this
+  .if bindAll_uController == @unit
+    bindAll_nUnitControlled = @unit.@controlled
+    .break bindAll_nUnitControlled != @ctrlPlayer
+  .fi
+.done
+.reti bindAll
+
+
+.label bindOne mUnit nUintFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUintFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  .do
+    ubind mUnit
+  .until @unit !== null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+.label bindOne_rebind
+    .do
+      .do
+        ubind mUnit
+      .until @unit !== null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUintFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne
+
+
+.label carrier @unit dTarget mWanted nTargetCapacity
+carrier_nTargetItems = dTarget.mWanted
+.if carrier_nTargetItems < nTargetCapacity
+  # take items
+  .do
+    # test if we already have the desired items
+    carrier_nUnitCapacity = @unit.@itemCapacity
+    carrier_mUnitItem = @unit.@firstItem
+    .if carrier_mUnitItem == mWanted
+      carrier_nUnitItems = @unit.@totalItems
+      .break carrier_nUnitItems >= carrier_nUnitCapacity
+      carrier_nTargetWants = nTargetCapacity - carrier_nTargetItems
+      .break carrier_nUnitItems >= carrier_nTargetWants
+    .fi
+
+    # move to core
+    ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound carrier_dCore
+    ucontrol approach carrier_xCore carrier_yCore 5
+
+    # drop unwanted
+    carrier_mUnitItem = @unit.@firstItem
+    .if carrier_mUnitItem != null
+      .if carrier_mUnitItem != mWanted
+        ucontrol itemDrop carrier_dCore carrier_nUnitCapacity
+      .fi
+    .fi
+
+    # take all
+    ucontrol itemTake carrier_dCore mWanted carrier_nUnitCapacity
+
+    .reti carrier
+  .until
+
+  # drop to target
+  carrier_xTarget = dTarget.@x
+  carrier_yTarget = dTarget.@y
+  ucontrol approach carrier_xTarget carrier_yTarget 5
+  ucontrol itemDrop dTarget carrier_nUnitCapacity
+.fi
+.reti carrier

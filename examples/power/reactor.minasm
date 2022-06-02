@@ -1,0 +1,45 @@
+.if switch1 !== null
+  bEnabled = switch1.@enabled
+  jump disableAll bEnabled == false
+.fi
+
+nCapacity = battery1.@powerNetCapacity
+nStored = battery1.@powerNetStored
+nRatio = nStored / nCapacity
+
+.if nRatio > 0.8
+.label disableAll
+  i = 0
+  .do
+    dBlock = %i
+    i += 1
+
+    mBlockType = dBlock.@type
+    .if mBlockType != @switch
+      .if mBlockType != @battery
+        control enabled dBlock false
+      .fi
+    .fi
+  .when i < @links
+  end
+.fi
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+
+  nCryofluid = dBlock.@cryofluid
+  .if nCryofluid !== null
+    .do
+      .break nCryofluid < 20
+      nThorium = dBlock.@thorium
+      .break nThorium < 28
+      control enabled dBlock true
+      jump next
+    .until
+
+    control enabled dBlock false
+.label next
+  .fi
+.when i < @links

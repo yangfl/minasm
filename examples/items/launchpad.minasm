@@ -1,4 +1,4 @@
-control enabled diode1 0
+control enabled diode1 false
 
 mItem = vault1.@firstItem
 end mItem === null
@@ -7,12 +7,12 @@ draw image 40 40 mItem 80
 drawflush display1
 
 bEnabled = switch1.@enabled
-end bEnabled == 0
+end bEnabled == false
 
 nUnitItems = vault1.@totalItems
 nUnitCapacity = vault1.@itemCapacity
 end nUnitItems != nUnitCapacity
 
-control enabled diode1 1
+control enabled diode1 true
 wait 20
-control enabled switch1 0
+control enabled switch1 false

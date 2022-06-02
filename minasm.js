@@ -53,7 +53,7 @@ require(['vs/editor/editor.main'], function () {
        * }[]} */
       const tokens = []
       let inMacro = false
-      for (const token of Minasm.Token.split(line)) {
+      for (const [startIndex, token] of Minasm.Token.split(line)) {
         let scopes
         switch (token.type) {
           case Minasm.Token.IDENTIFIER:
@@ -87,10 +87,7 @@ require(['vs/editor/editor.main'], function () {
             scopes = 'comment'
             break
         }
-        tokens.push({
-          startIndex: token.start,
-          scopes, token,
-        })
+        tokens.push({startIndex, scopes, token})
       }
 
       // mark instructions
@@ -287,9 +284,9 @@ require(['vs/editor/editor.main'], function () {
   monaco.languages.registerCompletionItemProvider('Minasm', {
     provideCompletionItems (model, position, context, token) {
       do {
-        const tokens = Array.from(Minasm.Token.split(
+        const tokens = Minasm.Line.fromString(
           model.getLineContent(position.lineNumber)
-            .slice(0, position.column - 1)))
+            .slice(0, position.column - 1)).tokens
         const token0 = tokens.at(0)
         if (!token0) {
           // nothing
@@ -457,103 +454,129 @@ require(['vs/editor/editor.main'], function () {
     resultEditor.setValue(result)
   })
 
-  sourceEditor.setValue(localStorage.getItem('minasm') || `# mWanted = @titanium
-mWanted = @thorium
+  sourceEditor.setValue(localStorage.getItem('minasm') || `mWanted = @titanium
+# mWanted = @thorium
+mUnit = @flare
 
-nProcessorID = @thisy * @mapw
-nProcessorID += @thisx
+nUintFlag = @thisy * @mapw
+nUintFlag += @thisx
 
-.label begin
-i = -1
+.label _start
 
-.while
+i = 0
+.while i < @links
   # read config
-  # .do
-  #   mWanted = sorter1.@config
-  # .when mWanted === null
+  .do
+    mWanted = sorter1.@config
+  .when mWanted === null
 
   # get link
-  i += 1
-.label redo
   dTarget = %i
-  jump begin dTarget === null
-  .continue dTarget == sorter1
-  nTargetItems = dTarget.mWanted
+  i += 1
+
   nTargetCapacity = dTarget.@itemCapacity
-  .continue nTargetItems >= nTargetCapacity
-
-  # bind unit
-  uController = @unit.@controller
-  .if uController != @this
-    .do
-      ubind @flare
-      .continue @unit === null
-      bUnitControlled = @unit.@controlled
-      .continue bUnitControlled != 0
-    .until
-    ucontrol flag nProcessorID  # unit vaild
+  .if nTargetCapacity >= 10
+    nTargetItems = dTarget.mWanted
+    .while nTargetItems < nTargetCapacity
+      .int bindOne
+      .int carrier
+      bTargetDead = dTarget.@dead
+      .break bTargetDead
+    .done
   .fi
-  ucontrol boost 1
+.done
 
+end
+
+.label bindAll mUnit
+.while
+  .do
+    ubind mUnit
+  .until @unit !== null
+  bindAll_uController = @unit.@controller
+  .break bindAll_uController == @this
+  .if bindAll_uController == @unit
+    bindAll_nUnitControlled = @unit.@controlled
+    .break bindAll_nUnitControlled != @ctrlPlayer
+  .fi
+.done
+.reti bindAll
+
+
+.label bindOne mUnit nUintFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUintFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  .do
+    ubind mUnit
+  .until @unit !== null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+.label bindOne_rebind
+    .do
+      .do
+        ubind mUnit
+      .until @unit !== null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUintFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne
+
+
+.label carrier @unit dTarget mWanted nTargetCapacity
+carrier_nTargetItems = dTarget.mWanted
+.if carrier_nTargetItems < nTargetCapacity
   # take items
   .do
     # test if we already have the desired items
-    nUnitCapacity = @unit.@itemCapacity
-    mUnitItem = @unit.@firstItem
-    .if mUnitItem == mWanted
-      nUnitItems = @unit.@totalItems
-      .break nUnitItems >= nUnitCapacity
-      nTargetWants = nTargetCapacity - nTargetItems
-      .break nUnitItems >= nTargetWants
+    carrier_nUnitCapacity = @unit.@itemCapacity
+    carrier_mUnitItem = @unit.@firstItem
+    .if carrier_mUnitItem == mWanted
+      carrier_nUnitItems = @unit.@totalItems
+      .break carrier_nUnitItems >= carrier_nUnitCapacity
+      carrier_nTargetWants = nTargetCapacity - carrier_nTargetItems
+      .break carrier_nUnitItems >= carrier_nTargetWants
     .fi
 
-    # take from core
-    .do
-      # move to core
-      ulocate building core false 0 xCore yCore bCoreFound dCore
-      ucontrol approach xCore yCore 5
+    # move to core
+    ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound carrier_dCore
+    ucontrol approach carrier_xCore carrier_yCore 5
 
-      # test if we lost control
-      uController = @unit.@controller
-      jump redo uController != @this
-
-      # drop unwanted
-      mUnitItem = @unit.@firstItem
-      .if mUnitItem != null
-        .if mUnitItem != mWanted
-          ucontrol itemDrop dCore nUnitCapacity
-          .continue
-        .fi
+    # drop unwanted
+    carrier_mUnitItem = @unit.@firstItem
+    .if carrier_mUnitItem != null
+      .if carrier_mUnitItem != mWanted
+        ucontrol itemDrop carrier_dCore carrier_nUnitCapacity
       .fi
+    .fi
 
-      # take all
-      ucontrol itemTake dCore mWanted nUnitCapacity
-      nUnitItems = @unit.@totalItems
-    .until nUnitItems != 0
+    # take all
+    ucontrol itemTake carrier_dCore mWanted carrier_nUnitCapacity
+
+    .reti carrier
   .until
 
   # drop to target
-  xTarget = dTarget.@x
-  yTarget = dTarget.@y
-  .while
-    ucontrol itemDrop dTarget nUnitCapacity
-
-    # test if target is full
-    nTargetItems = dTarget.mWanted
-    .break nTargetItems >= nTargetCapacity
-
-    # test if target is gone
-    dCurrentTarget = %i
-    .break dCurrentTarget != dTarget
-
-    # test if we lost control
-    uController = @unit.@controller
-    jump redo uController != @this
-
-    # test if we do not have any items
-    nUnitItems = @unit.@totalItems
-    jump redo nUnitItems == 0
-    ucontrol approach xTarget yTarget 5
-  .done
-.done`)
+  carrier_xTarget = dTarget.@x
+  carrier_yTarget = dTarget.@y
+  ucontrol approach carrier_xTarget carrier_yTarget 5
+  ucontrol itemDrop dTarget carrier_nUnitCapacity
+.fi
+.reti carrier`)
 })

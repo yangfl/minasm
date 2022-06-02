@@ -5,7 +5,7 @@ nColumn = 4
 
 .do
   arg0 = cell1[0]
-.until arg0 != 0
+.until arg0
 
 boundingX1 = cell1[1]
 boundingY1 = cell1[2]
@@ -82,8 +82,8 @@ globalY = 176 - globalY
 
   .do
     j = i + iColumn
+    jump end j >= @links
     dDisplay = %j
-    jump end dDisplay === null
 
     #  draw clear
     #  drawflush dDisplay

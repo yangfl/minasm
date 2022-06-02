@@ -1,0 +1,49 @@
+print "by awa\n"
+print "物品源逻辑，优先填充建材"
+printflush message1
+
+.do
+  dCore = %i
+  i += 1
+  i %= @links
+  nCapacity = dCore.@itemCapacity
+.until nCapacity >= 300
+
+.do
+  mItem = mMinItem
+  .int inventory
+  nMinItem = nItem
+
+  lookup item mItem iItem
+  iItem += 1
+  iItem %= @itemCount
+  .int inventory
+
+  .if nItem <= nMinItem
+    mMinItem = mItem
+    i = 0
+    .do
+      dBlock = %i
+      i += 1
+      control config dBlock mItem
+    .when i < @links
+  .fi
+
+  bCoreDead = dCore.@dead
+.until bCoreDead
+
+end
+
+
+.label inventory mItem dCore
+nItem = dCore.mItem
+.do
+  .break iItem == 4
+  .break iItem == 5
+  .break iItem == 8
+  .break iItem >= 13
+  jump inventory_normal
+.until
+nItem *= 16
+.label inventory_normal
+.reti inventory
