@@ -1,5 +1,9 @@
 ## MinAsm
 
+**Try it!**
+* Compiler: https://yangfl.github.io/minasm/
+* image2logic: https://yangfl.github.io/minasm/image2logic.html
+
 Assembly-like language that compiled to [Mindustry Logic Language](https://mindustrygame.github.io/wiki/logic/0-introduction/), inspired by https://pypi.org/project/MindustryCompiler/.
 
 #### features:
