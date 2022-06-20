@@ -1,5 +1,4 @@
-print "by awa\n"
-print "烧核心物品，必须链接核心本体（不能是容器）"
+print "by：[orange]awa[]\n烧核心物品，必须链接核心本体（不能是容器）"
 printflush message1
 
 i = 0

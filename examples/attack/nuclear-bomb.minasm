@@ -1,51 +1,73 @@
-# mWanted = @titanium
-# mWanted = @thorium
-mUnit = @flare
+print "by：[orange]awa[]\n[purple]全自动核弹井[]"
 
-nUintFlag = @thisy * @mapw
-nUintFlag += @thisx
+nThoriumStorage = container1.@thorium
+.if nThoriumStorage < 30
+  control enabled reactor1 false
+  print "\n[acid]抓取poly运送核材料...[]"
+  printflush message1
 
-.label _start
+  .int initNublear
+  .int bindOne
+  end @unit === null
 
-i = 0
-.while i < @links
-  # read config
-  .do
-    mWanted = sorter1.@config
-  .when mWanted === null
+  dTarget = container1
+  mWanted = @thorium
+  nTargetCapacity = 30
+  .int carrier
 
-  # get link
-  dTarget = %i
-  i += 1
+  end
+.fi
 
-  nTargetCapacity = dTarget.@itemCapacity
-  .if nTargetCapacity >= 10
-    nTargetItems = dTarget.mWanted
-    .while nTargetItems < nTargetCapacity
-      .int bindOne
-      .break @unit === null
-      .int carrier
-      bTargetDead = dTarget.@dead
-      .break bTargetDead
-    .done
-  .fi
-.done
+.if reactor1 === null
+  print "\n[orange]抓取poly制造核弹...[]"
+  printflush message1
+
+  .int initNublear
+  .int bindOne
+  end @unit === null
+
+  xReactor = @thisx + 1
+  yReactor = @thisy - 2
+  ucontrol approach xReactor yReactor 5
+  ucontrol build xReactor yReactor @thorium-reactor
+
+  end
+.fi
+
+nHeat = reactor1.@heat
+nThorium = reactor1.@thorium
+.if nHeat > 0.98
+  control enabled reactor1 false
+  bEnabled1 = nThorium < 2
+  control enabled unloader1 bEnabled1
+  control enabled unloader2 false
+
+  nPercentage = nHeat * 100
+  print "\n[acid]充能完毕\n热量："
+  print nPercentage
+  print "%[]"
+  printflush message1
+  end
+.fi
+
+nThoriumWanted = 1 - nHeat
+nThoriumWanted *= 10
+bEnabled1 = nThorium < nThoriumWanted
+bEnabled2 = bEnabled1 == false
+control enabled unloader1 bEnabled1
+control enabled unloader2 bEnabled2
+
+print "\n[red]充能中"
+printflush message1
 
 end
 
 
-.label bindAll mUnit
-.while
-  ubind mUnit
-  .break @unit === null
-  bindAll_uController = @unit.@controller
-  .break bindAll_uController == @this
-  .if bindAll_uController == @unit
-    bindAll_nUnitControlled = @unit.@controlled
-    .break bindAll_nUnitControlled != @ctrlPlayer
-  .fi
-.done
-.reti bindAll
+.label initNublear
+mUnit = @poly
+nUintFlag = @thisy * @mapw
+nUintFlag += @thisx
+.reti initNublear
 
 
 .label bindOne mUnit nUintFlag

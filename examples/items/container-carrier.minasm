@@ -1,8 +1,5 @@
-print "by awa"
-print "用两个mega，互相搬运容器"
-print "进入电弧选择目标容器位置，注意点正中间！！！"
-print "屑逻辑，出错了自行修正"
-printflush message114514
+print "by：[orange]awa[]\n用两个mega，互相搬运容器\n进入电弧选择目标容器位置，注意点正中间！！！\n屑逻辑，出错了自行修正"
+printflush message1
 
 mUnit = @mega
 
@@ -79,18 +76,16 @@ bindOne_uFirstUnit = null
     jump bindOne_rebind
   .fi
 
-  .do
-    ubind mUnit
-  .until @unit !== null
+  ubind mUnit
+  .break @unit === null
 
   .if bindOne_uFirstUnit === null
     bindOne_uFirstUnit = @unit
   .elif bindOne_uFirstUnit == @unit
 .label bindOne_rebind
     .do
-      .do
-        ubind mUnit
-      .until @unit !== null
+      ubind mUnit
+      .break @unit === null
       bindOne_nUnitControlled = @unit.@controlled
     .until bindOne_nUnitControlled == 0
     ucontrol flag nUintFlag  # unit valid

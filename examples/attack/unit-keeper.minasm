@@ -1,0 +1,34 @@
+print "by：[orange]awa[]\n[purple]空辅防送逻辑[]"
+printflush message1
+
+uFirstUnit = null
+.if mUnit == @mono
+  mUnit = @poly
+.elif mUnit == @poly
+  mUnit = @mega
+.else
+  mUnit = @mono
+.fi
+
+.while
+  ubind mUnit
+  .break @unit === null
+
+  .if uFirstUnit === null
+    uFirstUnit = @unit
+  .elif uFirstUnit == @unit
+    .break
+  .fi
+
+  nHealth = @unit.@health
+  nMaxHealth = @unit.@maxHealth
+  nHealthThreshold = nMaxHealth * 0.5
+  .continue nHealth > nHealthThreshold
+
+  ulocate building repair false 0 xRepair yRepair bRepairFound dRepair
+  .if bRepairFound == false
+    xRepair = @thisx
+    yRepair = @thisy
+  .fi
+  ucontrol approach xRepair yRepair 5
+.done

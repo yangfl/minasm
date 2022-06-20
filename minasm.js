@@ -199,6 +199,8 @@ require(['vs/editor/editor.main'], function () {
     ['while', 'done'],
     ['do', 'when'],
     ['do', 'until'],
+    ['for', 'endfor'],
+    ['case', 'esac'],
   ].map(x => x.join()))
   monaco.languages.registerFoldingRangeProvider('Minasm', {
     provideFoldingRanges (model, context, token) {
@@ -222,6 +224,8 @@ require(['vs/editor/editor.main'], function () {
           case 'done':
           case 'when':
           case 'until':
+          case 'endfor':
+          case 'esac':
             while (stack.length) {
               const range = stack.pop()
               range.end = i - 1
@@ -239,6 +243,8 @@ require(['vs/editor/editor.main'], function () {
           case 'if':
           case 'while':
           case 'do':
+          case 'for':
+          case 'case':
             stack.push({
               start: i,
               end: -1,
@@ -362,6 +368,20 @@ require(['vs/editor/editor.main'], function () {
                 insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
                 documentation: 'Do-Until Statement'
               },
+              {
+                label: 'for endfor',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: ['for ${1:condition}', '\t$0', '.endfor'].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'For-Endfor Statement'
+              },
+              {
+                label: 'case esac',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: ['case ${1:condition}', '\t$0', '.esac'].join('\n'),
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Case-Esac Statement'
+              },
             ],
           }
           for (const keyword of ['label', 'rel', 'call', 'ret', 'stack',
@@ -454,7 +474,7 @@ require(['vs/editor/editor.main'], function () {
     resultEditor.setValue(result)
   })
 
-  sourceEditor.setValue(localStorage.getItem('minasm') || `mWanted = @titanium
+  sourceEditor.setValue(localStorage.getItem('minasm') || `# mWanted = @titanium
 # mWanted = @thorium
 mUnit = @flare
 
@@ -479,6 +499,7 @@ i = 0
     nTargetItems = dTarget.mWanted
     .while nTargetItems < nTargetCapacity
       .int bindOne
+      .break @unit === null
       .int carrier
       bTargetDead = dTarget.@dead
       .break bTargetDead
@@ -490,9 +511,8 @@ end
 
 .label bindAll mUnit
 .while
-  .do
-    ubind mUnit
-  .until @unit !== null
+  ubind mUnit
+  .break @unit === null
   bindAll_uController = @unit.@controller
   .break bindAll_uController == @this
   .if bindAll_uController == @unit
@@ -518,18 +538,16 @@ bindOne_uFirstUnit = null
     jump bindOne_rebind
   .fi
 
-  .do
-    ubind mUnit
-  .until @unit !== null
+  ubind mUnit
+  .break @unit === null
 
   .if bindOne_uFirstUnit === null
     bindOne_uFirstUnit = @unit
   .elif bindOne_uFirstUnit == @unit
 .label bindOne_rebind
     .do
-      .do
-        ubind mUnit
-      .until @unit !== null
+      ubind mUnit
+      .break @unit === null
       bindOne_nUnitControlled = @unit.@controlled
     .until bindOne_nUnitControlled == 0
     ucontrol flag nUintFlag  # unit valid
@@ -560,7 +578,7 @@ carrier_nTargetItems = dTarget.mWanted
 
     # drop unwanted
     carrier_mUnitItem = @unit.@firstItem
-    .if carrier_mUnitItem != null
+    .if carrier_mUnitItem !== null
       .if carrier_mUnitItem != mWanted
         ucontrol itemDrop carrier_dCore carrier_nUnitCapacity
       .fi

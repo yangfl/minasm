@@ -1,5 +1,4 @@
-print "by awa\n"
-print "物品源逻辑，优先填充建材"
+print "by：[orange]awa[]\n物品源逻辑，优先填充建材"
 printflush message1
 
 .do

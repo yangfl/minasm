@@ -77,6 +77,7 @@ function (name, requires, factory, onExist = 'warn') {
     return reg.exec(str)
   }
 
+
   /** @type {Object<string, string[]>} */
   const opcodes = {
     // all instructions
@@ -158,6 +159,7 @@ function (name, requires, factory, onExist = 'warn') {
     ],
   }
 
+
   /**
    * @implements {Iterator<[number, Token], undefined>}
    * @implements {Iterable<[number, Token]>}
@@ -172,16 +174,19 @@ function (name, requires, factory, onExist = 'warn') {
       /**
        * input string
        * @type {string}
+       * @private
        */
       this.str = str
       /**
        * string pointer, `-1` is EOF
        * @type {number}
+       * @private
        */
       this.i = this.str ? start : -1
       /**
        * whether to keep whitespace tokens
        * @type {boolean}
+       * @private
        */
       this.keepWhitespace = keepWhitespace
     }
@@ -210,6 +215,7 @@ function (name, requires, factory, onExist = 'warn') {
     }
   }
 
+
   /**
    * A lexer token.
    */
@@ -229,13 +235,17 @@ function (name, requires, factory, onExist = 'warn') {
       /**
        * token type
        * @type {number}
+       * @readonly
        */
       this.type = type
       /**
        * token content
        * @type {string}
+       * @readonly
        */
       this.str = str
+
+      Object.freeze(this)
     }
 
     /**
@@ -364,42 +374,51 @@ function (name, requires, factory, onExist = 'warn') {
     }
   }
 
+
   /**
    * A parsed line.
    */
   class Line {
     /**
-     * @param {Iterable<Token>} tokens
-     * @param {string} indent
+     * @param {Iterable<Token>} tokens Tokens.
+     * @param {string} indent Indentation.
+     * @param {number} lineNumber Line number.
      */
-    constructor (tokens, indent = '') {
+    constructor (tokens, indent = '', lineNumber = -1) {
       /**
-       * Tokens.
+       * tokens
        * @type {Token[]}
        */
       this.tokens = Array.isArray(tokens) ? tokens : Array.from(tokens)
       /**
-       * Indentation.
+       * indentation
        * @type {string}
        */
       this.indent = indent
+      /**
+       * line number
+       * @type {number}
+       */
+      this.lineNumber = lineNumber
     }
 
     /**
      * Parse line.
      * @param {string} str Input string.
+     * @param {number} lineNumber Line number.
      * @returns {Line} Parsed line.
      */
-    static fromString (str) {
+    static fromString (str, lineNumber = -1) {
       return new Line(
         Array.from(Token.split(str)).map(x => x[1]),
-        str.match(/^\s+/)?.[0] || undefined)
+        str.match(/^\s+/)?.[0] || undefined, lineNumber)
     }
 
     toString () {
       return this.indent + this.tokens.join(' ')
     }
   }
+
 
   /**
    * @implements {Iterator<Instruction, undefined>}
@@ -458,6 +477,7 @@ function (name, requires, factory, onExist = 'warn') {
     }
   }
 
+
   /**
    * An instruction.
    * @implements {Iterable<Instruction>}
@@ -477,8 +497,8 @@ function (name, requires, factory, onExist = 'warn') {
     }))
 
     static reverseConditionToken = new Map(
-      Array.from(Instruction.reverseCondition)
-       .map(([key, value]) => [key, new Token(value)]))
+      Array.from(Instruction.reverseCondition).map(
+        ([key, value]) => [key, new Token(value)]))
 
     static operators = new Map(Object.entries({
       // core/src/mindustry/logic/LogicOp.java
@@ -524,60 +544,104 @@ function (name, requires, factory, onExist = 'warn') {
     static tokenLabelStart = new Token('_start')
 
     /**
-     * @param {string} op Instruction operator.
-     * @param {Token[]} args Instruction arguments.
-     * @param {number} index Line number, for debugging and code gen.
-     * @param {string} indent Indentation, for code gen.
-     * @param {Token[]} tokens Original tokens, for code gen.
+     * @param {string | Instruction} op Instruction operator.
+     * @param {Iterable<Token>} args Instruction arguments.
+     * @param {Line} line Original code line, for code gen.
+     * @param {number} subindex Sub line number, for code gen.
     */
-    constructor (op, args = [], index = -1, indent = '', tokens = []) {
-      /**
-       * instruction operator
-       * @type {string}
-       */
-      this.op = op
-      /**
-       * instruction arguments
-       * @type {Token[]}
-       */
-      this.args = Array.isArray(args) ? args : Array.from(args)
+    constructor (op, args = [], line = null, subindex = 0) {
+      if (!(op instanceof Instruction)) {
+        /**
+         * instruction operator
+         * @type {string}
+         */
+        this.op = op.toString()
+        /**
+         * instruction arguments
+         * @type {Token[]}
+         */
+        this.args = Array.isArray(args) ? args : Array.from(args)
 
-      /**
-       * next instruction, also the false branch when instruction is a jump
-       * @type {Instruction?}
-       */
-      this.next = null
-      /**
-       * the true branch when instruction is a jump
-       * @type {Instruction?}
-       */
-      this.branch = null
-      /**
-       * disable dead code elimination
-       * @type {boolean}
-       */
-      this.noOptimize = false
+        /**
+         * next instruction, also the false branch when instruction is a jump
+         * @type {Instruction | Token | null}
+         */
+        this.next = null
+        /**
+         * the true branch when instruction is a jump
+         * @type {Instruction | Token | null}
+         */
+        this.branch = null
+        /**
+         * disable dead code elimination
+         * @type {boolean}
+         */
+        this.noOptimize = false
 
-      /**
-       * jump label, for debugging
-       * @type {string}
-       */
-      this.label = null
-      /**
-       * line number, for debugging and code gen
-       * @type {number}
-       */
-      this.index = index
-      /**
-       * indentation, for code gen
-       * @type {string}
-       */
-      this.indent = indent
-      /**
-       * original tokens, for code gen
-       * @type {Token[]}
-       */
-      this.tokens = Array.isArray(tokens) ? tokens : Array.from(tokens)
+        /**
+         * jump label, for debugging
+         * @type {string?}
+         */
+        this.label = null
+        /**
+         * line number, for code gen
+         * @type {number}
+         */
+        this.index = line ? line.lineNumber : -1
+        /**
+         * sub line number, for code gen
+         * @type {number}
+         */
+        this.subindex = subindex
+
+        /**
+         * original code line, for code gen
+         * @type {Line?}
+         */
+        this.line = line
+        /**
+         * whether to ignore tokens
+         * @type {boolean}
+         */
+        this.ignoreTokens = false
+      } else {
+        this.op = op.op
+        this.args = op.args.slice()
+        this.next = op.next
+        this.branch = op.branch
+        this.noOptimize = op.noOptimize
+        this.label = op.label
+        this.index = op.index
+        this.subindex = op.subindex
+        this.line = op.line
+        this.ignoreTokens = op.ignoreTokens
+      }
+    }
+
+    /**
+     * @param {Instruction} a
+     * @param {Instruction} b
+     * @returns {number}
+     */
+    static distance (a, b) {
+      return 128 * (a.index - b.index) + (a.subindex - b.subindex)
+    }
+
+    /**
+     * @param {Instruction} other
+     * @returns {number}
+     */
+    distance (other) {
+      return Instruction.distance(this, other)
+    }
+
+    /**
+     * @param {Instruction} a
+     * @param {Instruction} b
+     * @returns {number}
+     */
+    static compare (a, b) {
+      return a.index - b.index || a.subindex - b.subindex
     }
 
     /**
@@ -666,7 +730,6 @@ function (name, requires, factory, onExist = 'warn') {
         return null
       }
 
-      const token2Str = tokens[2].toString()
       let op
       if (assign === '=') {
         if (tokens.length === 2) {
@@ -674,6 +737,7 @@ function (name, requires, factory, onExist = 'warn') {
           // 0 1
           return ['set', args]
         }
+        const token2Str = tokens[2].toString()
         if (token2Str === '%') {
           // x = % y
           // 0 1 2 3
@@ -877,7 +941,8 @@ function (name, requires, factory, onExist = 'warn') {
      * @type {boolean}
      */
     get isMacro () {
-      return this.tokens[0]?.toString() === '.'
+      return this.line && this.line.tokens.length > 0 &&
+        this.line.tokens[0].toString() === '.'
     }
 
     /**
@@ -899,6 +964,10 @@ function (name, requires, factory, onExist = 'warn') {
      *  unconditional jump.
      */
     getTarget (jumpCallee = false, initiator = null) {
+      if (this.noOptimize) {
+        // not optimize
+        return this
+      }
       if (initiator === this) {
         // loop detected
         return this
@@ -939,7 +1008,10 @@ function (name, requires, factory, onExist = 'warn') {
           (this.next ? this.next.index.toString().padStart(2) : '  ') + ']: '
       }
 
-      str += (this.indent || '') + this.op
+      if (this.line && this.line.indent) {
+        str += this.line.indent
+      }
+      str += this.op
       if (this.isJump) {
         str += ' ' + (this.branch ? this.branch.index : '<null>')
       }
@@ -947,11 +1019,11 @@ function (name, requires, factory, onExist = 'warn') {
         str += ' ' + this.args.join(' ')
       }
 
-      if (withToken || this.isMacro) {
+      if (!this.ignoreTokens && this.line && (withToken || this.isMacro)) {
         if (this.isMacro) {
-          str += '  # .' + this.tokens.slice(1).join(' ')
+          str += '  # .' + this.line.tokens.slice(1).join(' ')
         } else {
-          str += '  # ' + this.tokens.join(' ')
+          str += '  # ' + this.line.tokens.join(' ')
         }
       }
       return str
@@ -988,10 +1060,10 @@ function (name, requires, factory, onExist = 'warn') {
 
       const oldNext = this.next
       do {
-        if (!this.next?.getTarget) {
+        if (!this.next?.getTarget || this.next.noOptimize) {
           break
         }
-        if (this.isJump && !this.noOptimize && jumpDirection < 0) {
+        if (this.isJump && jumpDirection < 0) {
           this.next = null
           break
         }
@@ -1010,10 +1082,10 @@ function (name, requires, factory, onExist = 'warn') {
 
       const oldBranch = this.branch
       do {
-        if (!this.branch?.getTarget) {
+        if (!this.branch?.getTarget || this.branch.noOptimize) {
           break
         }
-        if (this.isJump && !this.noOptimize && jumpDirection > 0) {
+        if (this.isJump && jumpDirection > 0) {
           this.branch = null
           break
         }
@@ -1032,12 +1104,14 @@ function (name, requires, factory, onExist = 'warn') {
       } while (false)
 
       const normalized = oldNext !== this.next || oldBranch !== this.branch
+
       if (this.isJump && this.next?.getTarget) {
         if (!this.branch?.getTarget) {
           this.reverseJump()
+          return true
         } else {
-          const b = this.branch.index - this.index
-          const n = this.next.index - this.index
+          const b = this.branch.distance(this)
+          const n = this.next.distance(this)
           // -2 -1 0 +1 +2
           // branch next   action
           // -2     -1     y
@@ -1056,15 +1130,19 @@ function (name, requires, factory, onExist = 'warn') {
           } else if (b === 0 || n === 0) {
             if (n === 0) {
               this.reverseJump()
+              return true
             }
           } else if (b * n > 0 ? b < n : b > n) {
             this.reverseJump()
+            return true
           }
         }
       }
+
       return normalized
     }
   }
+
 
   /**
    * Compiler error.
@@ -1077,8 +1155,23 @@ function (name, requires, factory, onExist = 'warn') {
      */
     constructor (message, found = -1, source = -1) {
       super(message)
+      /**
+       * error name
+       * @type {string}
+       * @readonly
+       */
       this.name = this.constructor.name
+      /**
+       * line number where error was found
+       * @type {number}
+       * @readonly
+       */
       this.found = found
+      /**
+       * line number where error comes from
+       * @type {number}
+       * @readonly
+       */
       this.source = source
     }
 
@@ -1092,11 +1185,38 @@ function (name, requires, factory, onExist = 'warn') {
     }
   }
 
-  /**
-   * @typedef ProgramBlock
-   * name, begin, end[]
-   * @type {[string, Instruction?, Instruction[]]}
-   */
+
+  class ProgramBlock {
+    /**
+     * @param {string} name
+     * @param {Instruction} begin
+     * @param {Instruction[]} ends
+     * @param {any} [data]
+     */
+    constructor (name, begin, ends = [], data) {
+      /**
+       * block name
+       * @type {string}
+       */
+      this.name = name
+      /**
+       * begin instruction
+       * @type {Instruction}
+       */
+      this.begin = begin
+      /**
+       * end instructions
+       * @type {Instruction[]}
+       */
+      this.ends = ends
+      /**
+       * block data
+       * @type {any}
+       */
+      this.data = data
+    }
+  }
+
 
   /**
    * Complete source code.
@@ -1116,6 +1236,12 @@ function (name, requires, factory, onExist = 'warn') {
       this.tail = this.head
 
       /**
+       * all instructions
+       * @type {Instruction[]}
+       */
+      this.insts = []
+
+      /**
        * labeled instructions
        * @type {Map<string, Instruction>}
        */
@@ -1123,7 +1249,7 @@ function (name, requires, factory, onExist = 'warn') {
       this.labels.set(Instruction.tokenLabelStart.toString(), this.head)
       /**
        * instructions that within this relative line number range
-       * @type {Instruction[]}
+       * @type {(?Instruction)[]}
        */
       this.relinsts = []
 
@@ -1157,11 +1283,12 @@ function (name, requires, factory, onExist = 'warn') {
     /**
      * @param {string} name
      * @param {Instruction} begin
-     * @param {Instruction[]} end
+     * @param {Instruction[]} ends
+     * @param {any} [data]
      * @returns {ProgramBlock}
      */
-    addBlock (name, begin, end = []) {
-      const block = [name, begin, end]
+    addBlock (name, begin, ends = [], data) {
+      const block = new ProgramBlock(name, begin, ends, data)
       this.stack.push(block)
       return block
     }
@@ -1173,7 +1300,7 @@ function (name, requires, factory, onExist = 'warn') {
      */
     static matchBlock (block, blockStart) {
       return block && (typeof blockStart === 'string' ?
-        block[0] === blockStart : blockStart.includes(block[0]))
+        block.name === blockStart : blockStart.includes(block.name))
     }
 
     /**
@@ -1189,8 +1316,8 @@ function (name, requires, factory, onExist = 'warn') {
         throw new CompilerError(
           'unmatched ' + blockEnd, lineNumber,
           !block ? undefined :
-          block[1] ? block[1].index :
-          block[2].length !== 0 ? block[2].at(-1).index : undefined)
+          block.begin ? block.begin.index :
+          block.ends.length !== 0 ? block.ends.at(-1).index : undefined)
       }
       return block
     }
@@ -1208,21 +1335,30 @@ function (name, requires, factory, onExist = 'warn') {
 
     /**
      * @param {string | string[]} blockStart
-     * @param {string} blockEnd
-     * @param {number} lineNumber
-     * @returns {ProgramBlock}
+     * @returns {?ProgramBlock}
      */
-    findBlock (blockStart, blockEnd, lineNumber = -1) {
+    tryFindBlock (blockStart) {
       for (let i = this.stack.length - 1; i >= 0; i--) {
         if (Program.matchBlock(this.stack[i], blockStart)) {
           return this.stack[i]
         }
       }
-      return Program.testBlock(null, blockStart, blockEnd, lineNumber)
+      return null
+    }
+
+    /**
+     * @param {string | string[]} blockStart
+     * @param {string} blockEnd
+     * @param {number} lineNumber
+     * @returns {ProgramBlock}
+     */
+    findBlock (blockStart, blockEnd, lineNumber = -1) {
+      return this.tryFindBlock(blockStart) ||
+        Program.testBlock(null, blockStart, blockEnd, lineNumber)
     }
 
     endBlock () {
-      this.blockEnds.push(...this.stack.pop()[2])
+      this.blockEnds.push(...this.stack.pop().ends)
     }
 
     /**
@@ -1254,6 +1390,8 @@ function (name, requires, factory, onExist = 'warn') {
       if (!inst.isMacro) {
         this.relinsts.push(inst)
       }
+
+      this.insts.push(inst)
     }
 
     /**
@@ -1261,7 +1399,7 @@ function (name, requires, factory, onExist = 'warn') {
      * @param {number} newRelindex
      */
     resetRelinsts (lineNumber = -1, newRelindex = 0) {
-      while (this.relinsts.length !== 0 &&
+      while (this.relinsts.length > 0 &&
              !this.relinsts[this.relinsts.length - 1]) {
         this.relinsts.length--
       }
@@ -1271,18 +1409,29 @@ function (name, requires, factory, onExist = 'warn') {
         if (!inst || !inst.isJump) {
           continue
         }
-        let target = inst.branch
-        if (typeof target !== 'number') {
+        const target = inst.branch
+        if (!(target instanceof Token) || target.type !== Token.NUMERIC) {
           continue
         }
-        if (target >= this.relinsts.length) {
+
+        let label = target.toNumber()
+        const labelStr = target.toString()
+        if (!Number.isInteger(label)) {
           throw new CompilerError(
-            'relative jump out of range, want ' + target +
-            ', but max is ' + (this.relinsts.length - 1), lineNumber)
+            'jump line number "' + labelStr + '" not an integer', inst.index)
+        }
+        if (labelStr[0] === '+' || labelStr[0] === '-') {
+          label += i
+        }
+
+        if (label >= this.relinsts.length) {
+          throw new CompilerError(
+            'relative jump out of range, want ' + label + ', but max is ' +
+            (this.relinsts.length - 1), lineNumber, inst.index)
         }
         do {
-          inst.branch = this.relinsts[target]
-          target++
+          inst.branch = this.relinsts[label]
+          label++
         } while (!inst.branch)
       }
 
@@ -1292,13 +1441,15 @@ function (name, requires, factory, onExist = 'warn') {
 
     resolveLabels () {
       for (const inst of this) {
-        const label = inst.branch
-        if (typeof label === 'string') {
-          inst.branch = this.labels.get(label)
-          if (!inst.branch) {
-            throw new CompilerError(
-              'unknown label `' + label + "'", inst.index)
-          }
+        const target = inst.branch
+        if (!(target instanceof Token) || target.type !== Token.IDENTIFIER) {
+          continue
+        }
+        const label = target.toString()
+        inst.branch = this.labels.get(label)
+        if (!inst.branch) {
+          throw new CompilerError(
+            'unknown label `' + label + "'", inst.index)
         }
       }
     }
@@ -1311,7 +1462,7 @@ function (name, requires, factory, onExist = 'warn') {
       if (this.stack.length !== 0) {
         const block = this.stack[this.stack.length - 1]
         throw new CompilerError(
-          'unmatched ' + block[0], lineNumber, block[1].index)
+          'unmatched ' + block.name, lineNumber, block.begin.index)
       }
 
       this.resetRelinsts(lineNumber)
@@ -1366,23 +1517,26 @@ function (name, requires, factory, onExist = 'warn') {
       const lines = code.split('\n')
       /** @type {Instruction[]} */
       for (let i = 0; i < lines.length; i++) {
-        const line = Line.fromString(lines[i])
-        const tokens = line.tokens
+        const line = Line.fromString(lines[i], i)
+        const tokens = line.tokens.slice()
+        while (tokens.length > 0 &&
+               tokens[tokens.length - 1].type === Token.COMMENT) {
+          tokens.pop()
+        }
         if (tokens.length === 0) {
           program.relinsts.length++
           continue
         }
-        const indent = line.indent
 
         // process normal instructions
         if (tokens[0].type === Token.IDENTIFIER) {
           const [op, args, branch] = Instruction.decode(tokens)
-          const inst = new Instruction(op, args, i, indent, tokens)
+          const inst = new Instruction(op, args, line)
           if (branch) {
-            inst.branch = branch.toValue()
+            inst.branch = branch
           } else if (op === 'end') {
             inst.op = 'jump'
-            inst.branch = Instruction.tokenLabelStart.toString()
+            inst.branch = Instruction.tokenLabelStart
           }
           program.push(inst)
           continue
@@ -1405,7 +1559,13 @@ function (name, requires, factory, onExist = 'warn') {
               throw new CompilerError('stack cell is not defined', i)
             }
             // fallthrough
-          case 'label':
+          case 'label': {
+            const block = program.tryFindBlock('for')
+            if (block) {
+              throw new CompilerError(
+                'label not allowed in for block', i, block.begin.index)
+            }
+
             if ([Token.IDENTIFIER, Token.STRING].includes(token2?.type)) {
               program.label = token2.toString()
               if (program.labels.has(program.label) &&
@@ -1420,9 +1580,10 @@ function (name, requires, factory, onExist = 'warn') {
               program.push(new Instruction(
                 'op', [
                   new Token('sub'), stackPointer, stackPointer,
-                  new Token('1', Token.NUMERIC)], i, indent, tokens))
+                  new Token('1', Token.NUMERIC)], line))
             }
             break
+          }
           case 'rel':
             program.resetRelinsts(i - 1, token2?.toNumber() || 0)
             break
@@ -1434,8 +1595,7 @@ function (name, requires, factory, onExist = 'warn') {
               program.push(new Instruction(
                 'set', [
                   stackPointer,
-                  new Token((stackSize - 1).toString(), Token.NUMERIC)
-                ], i, indent, tokens))
+                  new Token((stackSize - 1).toString(), Token.NUMERIC)], line))
             }
             break
           case 'push': {
@@ -1445,13 +1605,12 @@ function (name, requires, factory, onExist = 'warn') {
             if (token2) {
               program.push(new Instruction(
                 'write', [
-                  new Token(token2.toString()), stackCell, stackPointer],
-                i, indent, tokens))
+                  new Token(token2.toString()), stackCell, stackPointer], line))
             }
             program.push(new Instruction(
               'op', [
                 new Token('sub'), stackPointer, stackPointer,
-                new Token('1', Token.NUMERIC)], i + 0.5, indent, tokens))
+                new Token('1', Token.NUMERIC)], line, 1))
             break
           }
           case 'pushn': {
@@ -1461,7 +1620,7 @@ function (name, requires, factory, onExist = 'warn') {
             program.push(new Instruction(
               'op', [
                 new Token('sub'), stackPointer, stackPointer,
-                token2 || new Token('1', Token.NUMERIC)], i, indent, tokens))
+                token2 || new Token('1', Token.NUMERIC)], line))
             break
           }
           case 'pop': {
@@ -1471,12 +1630,12 @@ function (name, requires, factory, onExist = 'warn') {
             program.push(new Instruction(
               'op', [
                 new Token('add'), stackPointer, stackPointer,
-                new Token('1', Token.NUMERIC)], i, indent, tokens))
+                new Token('1', Token.NUMERIC)], line))
             if (token2) {
               program.push(new Instruction(
                 'read', [
                   new Token(token2.toString()), stackCell, stackPointer],
-                i + 0.5, indent, tokens))
+                line, 1))
             }
             break
           }
@@ -1487,7 +1646,7 @@ function (name, requires, factory, onExist = 'warn') {
             program.push(new Instruction(
               'op', [
                 new Token('add'), stackPointer, stackPointer,
-                token2 || new Token('1', Token.NUMERIC)], i, indent, tokens))
+                token2 || new Token('1', Token.NUMERIC)], line))
             break
           }
           // call ret
@@ -1500,11 +1659,11 @@ function (name, requires, factory, onExist = 'warn') {
             }
 
             const instSave = new Instruction(
-              'write', [stackCell, stackPointer], i, indent, tokens)
+              'write', [stackCell, stackPointer], line)
             program.push(instSave)
 
-            const inst = new Instruction('jump', [], i, indent, tokens)
-            inst.branch = token2.toString()
+            const inst = new Instruction('jump', [], line, 1)
+            inst.branch = token2
             program.push(inst, true)
 
             program.blockEnds.push(instSave)
@@ -1520,12 +1679,11 @@ function (name, requires, factory, onExist = 'warn') {
               program.push(new Instruction(
                 'op', [
                   new Token('add'), stackPointer, stackPointer,
-                  new Token('1', Token.NUMERIC)], i, indent, tokens))
+                  new Token('1', Token.NUMERIC)], line))
             }
             program.push(new Instruction(
-              'read', [
-                Instruction.tokenCounter, stackCell, stackPointer],
-              i + 0.5, indent, tokens), true)
+              'read', [Instruction.tokenCounter, stackCell, stackPointer],
+              line, 1), true)
             break
           }
           // int reti
@@ -1533,16 +1691,15 @@ function (name, requires, factory, onExist = 'warn') {
             if (![Token.IDENTIFIER, Token.STRING].includes(token2?.type)) {
               throw new CompilerError('no interrupt handler', i)
             }
-            const handler = token2.toString()
 
             const instSave = new Instruction(
               'set', [new Token(
-                interruptPrefix + (tokens[3]?.toString() || handler))],
-              i, indent, tokens)
+                interruptPrefix + (tokens[3]?.toString() || token2.toString())
+              )], line)
             program.push(instSave)
 
-            const inst = new Instruction('jump', [], i + 0.5, indent, tokens)
-            inst.branch = handler
+            const inst = new Instruction('jump', [], line, 1)
+            inst.branch = token2
             program.push(inst, true)
 
             program.blockEnds.push(instSave)
@@ -1557,7 +1714,7 @@ function (name, requires, factory, onExist = 'warn') {
             program.push(new Instruction(
               'set', [
                 Instruction.tokenCounter, new Token(interruptPrefix + handler)],
-              i, indent, tokens), true)
+              line), true)
             break
           }
           /*******
@@ -1575,8 +1732,7 @@ function (name, requires, factory, onExist = 'warn') {
            *******/
           case 'if': {
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             inst.reverseJump()
             program.push(inst)
 
@@ -1586,38 +1742,36 @@ function (name, requires, factory, onExist = 'warn') {
           case 'elif': {
             const block = program.testBlock('if', 'elif', i)
 
-            const instEnd = new Instruction('jump', [], i, indent, tokens)
+            const instEnd = new Instruction('jump', [], line)
             program.push(instEnd)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             inst.reverseJump()
             program.push(inst)
 
-            block[1].branch = inst
-            block[1] = inst
-            block[2][block[2].length - 1] = instEnd
-            block[2].push(inst)
+            block.begin.branch = inst
+            block.begin = inst
+            block.ends[block.ends.length - 1] = instEnd
+            block.ends.push(inst)
             break
           }
           case 'else': {
             const block = program.testBlock('if', 'else', i)
-            if (!block[1]) {
+            if (!block.begin) {
               throw new CompilerError(
-                'excessive else', i, block[2].at(-1).index)
+                'excessive else', i, block.ends.at(-1).index)
             }
 
-            const instEnd = new Instruction('jump', [], i, indent, tokens)
+            const instEnd = new Instruction('jump', [], line)
             program.push(instEnd)
 
-            const inst = new Instruction(
-              'jump', [Instruction.tokenNever], i, indent, tokens)
+            const inst = new Instruction('jump', [Instruction.tokenNever], line)
             program.push(inst)
 
-            block[1].branch = inst
-            block[1] = null
-            block[2][block[2].length - 1] = instEnd
+            block.begin.branch = inst
+            block.begin = null
+            block.ends[block.ends.length - 1] = instEnd
             break
           }
           case 'fi': {
@@ -1635,23 +1789,22 @@ function (name, requires, factory, onExist = 'warn') {
            * ...
            *******/
           case 'break': {
-            const block = program.findBlock(['while', 'do'], 'break', i)
+            const block = program.findBlock(['while', 'do', 'for'], 'break', i)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             program.push(inst)
 
-            block[2].push(inst)
+            block.ends.push(inst)
             break
           }
           case 'continue': {
-            const block = program.findBlock(['while', 'do'], 'continue', i)
+            const block = program.findBlock(
+              ['while', 'do', 'for'], 'continue', i)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
-            inst.branch = block[1]
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
+            inst.branch = block.begin
             program.push(inst)
 
             break
@@ -1665,8 +1818,7 @@ function (name, requires, factory, onExist = 'warn') {
            *******/
           case 'while': {
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             inst.reverseJump()
             program.push(inst)
 
@@ -1676,11 +1828,10 @@ function (name, requires, factory, onExist = 'warn') {
           case 'done': {
             const block = program.testBlock('while', 'done', i)
 
-            const inst = new Instruction(
-              'jump', block[1].args.slice(), i, indent, tokens)
+            const inst = new Instruction('jump', block.begin.args.slice(), line)
             inst.reverseJump()
             program.push(inst)
-            inst.branch = block[1].next
+            inst.branch = block.begin.next
 
             program.endBlock()
             break
@@ -1693,8 +1844,7 @@ function (name, requires, factory, onExist = 'warn') {
            * # .when
            *******/
           case 'do': {
-            const inst = new Instruction(
-              'jump', [Instruction.tokenNever], i, indent, tokens)
+            const inst = new Instruction('jump', [Instruction.tokenNever], line)
             program.push(inst)
 
             program.addBlock('do', inst)
@@ -1704,9 +1854,8 @@ function (name, requires, factory, onExist = 'warn') {
             const block = program.testBlock('do', 'when', i)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
-            inst.branch = block[1]
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
+            inst.branch = block.begin
             program.push(inst)
 
             program.endBlock()
@@ -1716,24 +1865,120 @@ function (name, requires, factory, onExist = 'warn') {
             const block = program.testBlock('do', 'until', i)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             inst.reverseJump()
-            inst.branch = block[1]
+            inst.branch = block.begin
             program.push(inst)
 
             program.endBlock()
             break
           }
-          // case stop esac
+          /*******
+           * # .for var start end step
+           * ...
+           * # .endfor
+           *******/
+          case 'for': {
+            if (tokens.length < 5 || token2.type !== Token.IDENTIFIER ||
+                tokens[3].type !== Token.NUMERIC ||
+                tokens[4].type !== Token.NUMERIC ||
+                (tokens.length > 5 && tokens[5].type !== Token.NUMERIC)) {
+              throw new CompilerError('invalid `for` syntax', i)
+            }
+
+            const varName = token2.toString()
+            const start = tokens[3].toNumber()
+            const end = tokens[4].toNumber()
+            const step = tokens[5] ? tokens[5].toNumber() : start < end ? 1 : -1
+
+            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            program.push(inst)
+
+            program.addBlock('for', inst, [], [varName, start, end, step])
+            break
+          }
+          case 'endfor': {
+            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            program.push(inst)
+
+            const block = program.testBlock('for', 'endfor', i)
+            program.endBlock()
+
+            const startRel = program.insts.indexOf(block.begin) + 1
+            const endRel = program.insts.length
+            if (endRel <= startRel) {
+              break
+            }
+
+            const varName = block.data[0]
+            const start = block.data[1]
+            const end = block.data[2]
+            const step = block.data[3]
+
+            const tokenStart = new Token(start, Token.NUMERIC)
+            for (let i = startRel; i < endRel; i++) {
+              const inst = program.insts[i]
+              for (let j = 0; j < inst.args.length; j++) {
+                if (inst.args[j].type === Token.IDENTIFIER &&
+                    inst.args[j].toString() === varName) {
+                  inst.args[j] = tokenStart
+                }
+              }
+            }
+
+            const body = program.insts.slice(startRel, endRel)
+            const branchRel = body.map(inst => body.indexOf(inst.branch))
+            const nextRel = body.map(inst => body.indexOf(inst.next))
+
+            const index = program.insts[endRel - 1].index
+            let subindex = program.insts[endRel - 1].subindex + 1
+            for (let n = start + step;
+                 Math.abs(n - start) < Math.abs(end - start); n += step) {
+              const tokenN = new Token(n, Token.NUMERIC)
+              const bodyN = []
+              for (let i = startRel; i < endRel; i++) {
+                const inst = new Instruction(program.insts[i])
+                bodyN.push(inst)
+
+                inst.index = index
+                inst.subindex = subindex
+                program.push(inst)
+
+                subindex++
+
+                for (let j = 0; j < inst.args.length; j++) {
+                  if (inst.args[j] === tokenStart) {
+                    inst.args[j] = tokenN
+                  }
+                }
+              }
+              for (let i = 0; i < bodyN.length; i++) {
+                if (branchRel[i] >= 0) {
+                  bodyN[i].branch = bodyN[branchRel[i]]
+                }
+                if (nextRel[i] >= 0) {
+                  bodyN[i].next = bodyN[nextRel[i]]
+                }
+              }
+            }
+
+            break
+          }
+          /*******
+           * # .case var
+           * @counter += var
+           * ...
+           * # .stop
+           * jump end
+           * ...
+           * # .esac
+           *******/
           case 'case': {
             const inst = token2 ?
               new Instruction(
                 'op', [new Token('add'), Instruction.tokenCounter,
-                       Instruction.tokenCounter, token2],
-                i, indent, tokens) :
-              new Instruction(
-                'jump', [Instruction.tokenNever], i, indent, tokens)
+                       Instruction.tokenCounter, token2], line) :
+              new Instruction('jump', [Instruction.tokenNever], line)
             program.push(inst)
             program.addBlock('case', inst)
             program.noOptimize = true
@@ -1744,11 +1989,10 @@ function (name, requires, factory, onExist = 'warn') {
             const block = program.findBlock('case', 'stop', i)
 
             const inst = new Instruction(
-              'jump', Instruction.decodeCondition(tokens.slice(2)),
-              i, indent, tokens)
+              'jump', Instruction.decodeCondition(tokens.slice(2)), line)
             program.push(inst)
 
-            block[2].push(inst)
+            block.ends.push(inst)
             break
           }
           case 'esac': {
@@ -1768,7 +2012,7 @@ function (name, requires, factory, onExist = 'warn') {
       program.deadcodeEliminate(changed)
 
       // codegen
-      const rawInsts = Array.from(program).sort((a, b) => a.index - b.index)
+      const rawInsts = Array.from(program).sort(Instruction.compare)
       if (rawInsts.length === 1) {
         return []
       }
@@ -1786,8 +2030,9 @@ function (name, requires, factory, onExist = 'warn') {
 
         if (inst.next && inst.next !== (
             i + 1 < rawInsts.length ? rawInsts[i + 1] : rawInsts[0])) {
-          const newInst = new Instruction(
-            'jump', [], inst.index + 1, inst.indent)
+          const newInst = new Instruction('jump', [], inst.line)
+          newInst.ignoreTokens = true
+
           newInst.branch = inst.next
           inst.next = newInst
 
@@ -1804,9 +2049,8 @@ function (name, requires, factory, onExist = 'warn') {
             if (inst.branch === insts[0]) {
               inst.op = 'end'
             } else {
-              inst.args.push(
-                Instruction.tokenAlways, Instruction.padding,
-                Instruction.padding)
+              inst.args.push(Instruction.tokenAlways, Instruction.padding,
+                             Instruction.padding)
             }
             continue
           }
@@ -1823,10 +2067,10 @@ function (name, requires, factory, onExist = 'warn') {
               }
               break
             case 'strictNotEqual':
-              inst.args[0] = Instruction.reverseConditionToken.get('equal')
+              inst.args[0] = Instruction.tokenNotEqual
               break
             case 'never':
-              inst.args[0] = Instruction.reverseConditionToken.get('equal')
+              inst.args[0] = Instruction.tokenNotEqual
               inst.args[1] = Instruction.padding
               inst.args[2] = Instruction.padding
               break
@@ -1846,18 +2090,23 @@ function (name, requires, factory, onExist = 'warn') {
         }
       }
 
+      while (insts.length > 0 && insts[insts.length - 1].op === 'end') {
+        insts.pop()
+      }
+
       return insts
     }
   }
 
+
   return {
+    Token, Line, Instruction, CompilerError, Program,
+
     /** @type {Object<string, string>} */
     colors: {
       memory: 'A08A8A', block: 'D4816B', variable: '877BAD',
       flow: '6BB2B2', unit: 'C7B59D',
     },
     opcodes,
-
-    Token, Instruction, CompilerError, Program,
   }
 })
