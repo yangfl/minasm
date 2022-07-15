@@ -166,28 +166,32 @@ function (name, requires, factory, onExist = 'warn') {
    */
   class TokenIterator {
     /**
+     * input string
+     * @type {string}
+     * @private
+     */
+    str
+    /**
+     * string pointer, `-1` is EOF
+     * @type {number}
+     * @private
+     */
+    i
+    /**
+     * whether to keep whitespace tokens
+     * @type {boolean}
+     * @private
+     */
+    keepWhitespace
+
+    /**
      * @param {string} str Input string.
      * @param {boolean} keepWhitespace Whether to keep whitespace tokens.
      * @param {number} start Starting position.
      */
     constructor (str, keepWhitespace = false, start = 0) {
-      /**
-       * input string
-       * @type {string}
-       * @private
-       */
       this.str = str
-      /**
-       * string pointer, `-1` is EOF
-       * @type {number}
-       * @private
-       */
-      this.i = this.str ? start : -1
-      /**
-       * whether to keep whitespace tokens
-       * @type {boolean}
-       * @private
-       */
+      this.i = str ? start : -1
       this.keepWhitespace = keepWhitespace
     }
 
@@ -228,21 +232,24 @@ function (name, requires, factory, onExist = 'warn') {
     static COMMENT = 5
 
     /**
+     * token type
+     * @type {number}
+     * @readonly
+     */
+    type
+    /**
+     * token content
+     * @type {string}
+     * @readonly
+     */
+    str
+
+    /**
      * @param {string} str Token content.
      * @param {number} type Token type.
      */
     constructor (str, type = Token.IDENTIFIER) {
-      /**
-       * token type
-       * @type {number}
-       * @readonly
-       */
       this.type = type
-      /**
-       * token content
-       * @type {string}
-       * @readonly
-       */
       this.str = str
 
       Object.freeze(this)
@@ -380,25 +387,29 @@ function (name, requires, factory, onExist = 'warn') {
    */
   class Line {
     /**
+     * tokens
+     * @type {Token[]}
+     */
+    tokens
+    /**
+     * indentation
+     * @type {string}
+     */
+    indent
+    /**
+     * line number
+     * @type {number}
+     */
+    lineNumber
+
+    /**
      * @param {Iterable<Token>} tokens Tokens.
      * @param {string} indent Indentation.
      * @param {number} lineNumber Line number.
      */
     constructor (tokens, indent = '', lineNumber = -1) {
-      /**
-       * tokens
-       * @type {Token[]}
-       */
       this.tokens = Array.isArray(tokens) ? tokens : Array.from(tokens)
-      /**
-       * indentation
-       * @type {string}
-       */
       this.indent = indent
-      /**
-       * line number
-       * @type {number}
-       */
       this.lineNumber = lineNumber
     }
 
@@ -426,14 +437,25 @@ function (name, requires, factory, onExist = 'warn') {
    */
   class InstructionIterator {
     /**
+     * instruction stack
+     * @type {Instruction[]}
+     */
+    stack = []
+    /**
+     * outputted instructions
+     * @type {Set<Instruction>}
+     */
+    result = new Set
+    /**
+     * initial start instruction
+     * @type {Instruction?}
+     */
+    start
+
+    /**
      * @param {Instruction} start Instruction to start from.
      */
     constructor (start) {
-      /** @type {Instruction[]} */
-      this.stack = []
-      /** @type {Set<Instruction>} */
-      this.result = new Set
-      /** @type {Instruction?} */
       this.start = start
     }
 
@@ -543,6 +565,61 @@ function (name, requires, factory, onExist = 'warn') {
     static tokenFalse = new Token('false')
     static tokenLabelStart = new Token('_start')
 
+
+    /**
+     * instruction operator
+     * @type {string}
+     */
+    op
+    /**
+     * instruction arguments
+     * @type {Token[]}
+     */
+    args
+
+    /**
+     * next instruction, also the false branch when instruction is a jump
+     * @type {Instruction | Token | null}
+     */
+    next = null
+    /**
+     * the true branch when instruction is a jump
+     * @type {Instruction | Token | null}
+     */
+    branch = null
+    /**
+     * disable dead code elimination
+     * @type {boolean}
+     */
+    noOptimize = false
+
+    /**
+     * jump label, for debugging
+     * @type {string?}
+     */
+    label = null
+    /**
+     * line number, for code gen
+     * @type {number}
+     */
+    index
+    /**
+     * sub line number, for code gen
+     * @type {number}
+     */
+    subindex
+
+    /**
+     * original code line, for code gen
+     * @type {Line?}
+     */
+    line
+    /**
+     * whether to ignore tokens
+     * @type {boolean}
+     */
+    ignoreTokens = false
+
     /**
      * @param {string | Instruction} op Instruction operator.
      * @param {Iterable<Token>} args Instruction arguments.
@@ -551,59 +628,13 @@ function (name, requires, factory, onExist = 'warn') {
     */
     constructor (op, args = [], line = null, subindex = 0) {
       if (!(op instanceof Instruction)) {
-        /**
-         * instruction operator
-         * @type {string}
-         */
         this.op = op.toString()
-        /**
-         * instruction arguments
-         * @type {Token[]}
-         */
         this.args = Array.isArray(args) ? args : Array.from(args)
 
-        /**
-         * next instruction, also the false branch when instruction is a jump
-         * @type {Instruction | Token | null}
-         */
-        this.next = null
-        /**
-         * the true branch when instruction is a jump
-         * @type {Instruction | Token | null}
-         */
-        this.branch = null
-        /**
-         * disable dead code elimination
-         * @type {boolean}
-         */
-        this.noOptimize = false
-
-        /**
-         * jump label, for debugging
-         * @type {string?}
-         */
-        this.label = null
-        /**
-         * line number, for code gen
-         * @type {number}
-         */
         this.index = line ? line.lineNumber : -1
-        /**
-         * sub line number, for code gen
-         * @type {number}
-         */
         this.subindex = subindex
 
-        /**
-         * original code line, for code gen
-         * @type {Line?}
-         */
         this.line = line
-        /**
-         * whether to ignore tokens
-         * @type {boolean}
-         */
-        this.ignoreTokens = false
       } else {
         this.op = op.op
         this.args = op.args.slice()
@@ -698,7 +729,8 @@ function (name, requires, factory, onExist = 'warn') {
     /**
      * Decode Minasm assignment statement to Mindustry instruction.
      * @param {Token[]} tokens Minasm assignment statement.
-     * @returns {[string, Token[]]?} Mindustry instruction operator and arguments.
+     * @returns {[string, Token[]]?}
+     *  Mindustry instruction operator and arguments.
      */
     static decodeAssignment (tokens) {
       if (tokens.length <= 1 || tokens[0].type !== Token.IDENTIFIER) {
@@ -794,8 +826,9 @@ function (name, requires, factory, onExist = 'warn') {
     /**
      * Decode Minasm statement to Mindustry instruction.
      * @param {Token[]} tokens Minasm statement.
-     * @returns {[string, Token[], Token?]} Mindustry instruction operator,
-     *  arguments, and label of branch target if instruction is a jump.
+     * @returns {[string, Token[], Token?]}
+     *  Mindustry instruction operator, arguments, and label of branch target if
+     *  instruction is a jump.
      */
     static decode (tokens) {
       if (tokens.length === 0 || tokens[0].type !== Token.IDENTIFIER) {
@@ -1149,29 +1182,33 @@ function (name, requires, factory, onExist = 'warn') {
    */
   class CompilerError extends Error {
     /**
+     * error name
+     * @type {string}
+     * @readonly
+     */
+    name
+    /**
+     * line number where error was found
+     * @type {number}
+     * @readonly
+     */
+    found
+    /**
+     * line number where error comes from
+     * @type {number}
+     * @readonly
+     */
+    source
+
+    /**
      * @param {string} message Error message.
      * @param {number} found Line number where error was found.
      * @param {number} source Line number where error comes from.
      */
     constructor (message, found = -1, source = -1) {
       super(message)
-      /**
-       * error name
-       * @type {string}
-       * @readonly
-       */
       this.name = this.constructor.name
-      /**
-       * line number where error was found
-       * @type {number}
-       * @readonly
-       */
       this.found = found
-      /**
-       * line number where error comes from
-       * @type {number}
-       * @readonly
-       */
       this.source = source
     }
 
@@ -1188,31 +1225,36 @@ function (name, requires, factory, onExist = 'warn') {
 
   class ProgramBlock {
     /**
+     * block name
+     * @type {string}
+     */
+    name
+    /**
+     * begin instruction
+     * @type {Instruction}
+     */
+    begin
+    /**
+     * end instructions
+     * @type {Instruction[]}
+     */
+    ends
+    /**
+     * block data
+     * @type {any}
+     */
+    data
+
+    /**
      * @param {string} name
      * @param {Instruction} begin
      * @param {Instruction[]} ends
      * @param {any} [data]
      */
     constructor (name, begin, ends = [], data) {
-      /**
-       * block name
-       * @type {string}
-       */
       this.name = name
-      /**
-       * begin instruction
-       * @type {Instruction}
-       */
       this.begin = begin
-      /**
-       * end instructions
-       * @type {Instruction[]}
-       */
       this.ends = ends
-      /**
-       * block data
-       * @type {any}
-       */
       this.data = data
     }
   }
@@ -1223,57 +1265,59 @@ function (name, requires, factory, onExist = 'warn') {
    * @implements {Iterable<Instruction>}
    */
   class Program {
+    /**
+     * program head
+     * @type {Instruction}
+     */
+    head = new Instruction('jump', [Instruction.tokenNever])
+    /**
+     * program tail
+     * @type {Instruction?}
+     */
+    tail
+
+    /**
+     * all instructions
+     * @type {Instruction[]}
+     */
+    insts = []
+
+    /**
+     * labeled instructions
+     * @type {Map<string, Instruction>}
+     */
+    labels = new Map
+    /**
+     * instructions that within this relative line number range
+     * @type {(?Instruction)[]}
+     */
+    relinsts = []
+
+    /**
+     * label name of next instruction
+     * @type {string?}
+     */
+    label = null
+    /**
+     * disable dead code elimination
+     * @type {boolean}
+     */
+    noOptimize = false
+
+    /**
+     * source block stack
+     * @type {ProgramBlock[]}
+     */
+    stack = []
+    /**
+     * jump instruction of block
+     * @type {Instruction[]}
+     */
+    blockEnds = []
+
     constructor () {
-      /**
-       * program head
-       * @type {Instruction}
-       */
-      this.head = new Instruction('jump', [Instruction.tokenNever])
-      /**
-       * program tail
-       * @type {Instruction?}
-       */
       this.tail = this.head
-
-      /**
-       * all instructions
-       * @type {Instruction[]}
-       */
-      this.insts = []
-
-      /**
-       * labeled instructions
-       * @type {Map<string, Instruction>}
-       */
-      this.labels = new Map
       this.labels.set(Instruction.tokenLabelStart.toString(), this.head)
-      /**
-       * instructions that within this relative line number range
-       * @type {(?Instruction)[]}
-       */
-      this.relinsts = []
-
-      /**
-       * label name of next instruction
-       * @type {string?}
-       */
-      this.label = null
-      /**
-       * disable dead code elimination
-       * @type {boolean}
-       */
-      this.noOptimize = false
-
-      /**
-       * source block stack
-       * @type {ProgramBlock[]}
-       */
-      this.stack = []
-      /**
-       * jump instruction of block
-       * @type {Instruction[]}
-       */
-      this.blockEnds = []
     }
 
     [Symbol.iterator] () {

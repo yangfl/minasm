@@ -340,9 +340,30 @@ function matrixBlur (matrix, width, height, blur = 0) {
 /********** orthogonalization **********/
 
 /**
- * rect
+ * Rectangle bounding box.
  */
 class Rectangle {
+  /**
+   * start of x coordinate range (inclusive)
+   * @type {number}
+   */
+  l
+  /**
+   * start of y coordinate range (inclusive)
+   * @type {number}
+   */
+  t
+  /**
+   * end of x coordinate range (exclusive)
+   * @type {number}
+   */
+  r
+  /**
+   * end of y coordinate range (exclusive)
+   * @type {number}
+   */
+  b
+
   /**
    * @param {number} l
    * @param {number} t
@@ -350,19 +371,35 @@ class Rectangle {
    * @param {number} b
    */
   constructor (l, t, r, b) {
-    /** @type {number} */
     this.l = l
-    /** @type {number} */
     this.t = t
-    /** @type {number} */
     this.r = r
-    /** @type {number} */
     this.b = b
   }
 }
 
 
+/**
+ * Rectangle bounding box with tag.
+ */
 class TaggedRectangle extends Rectangle {
+  /**
+   * rectangle tag
+   * @type {number}
+   */
+  tag
+
+  /**
+   * level of the rectangle in the rectangle heap
+   * @type {number}
+   */
+  level = 0
+  /**
+   * rectangles covered by this rectangle
+   * @type {Set<TaggedRectangle>}
+   */
+  covered = new Set
+
   /**
    * @param {number} l
    * @param {number} t
@@ -372,17 +409,12 @@ class TaggedRectangle extends Rectangle {
    */
   constructor (l, t, r, b, tag) {
     super(l, t, r, b)
-    /** @type {number} */
     this.tag = tag
-
-    /** @type {number} */
-    this.level = 0
-    /** @type {Set<TaggedRectangle>} */
-    this.covered = new Set
   }
 
   /**
-   * @param {TaggedRectangle} rect
+   * Indicate `rect` is covered by this rectangle.
+   * @param {TaggedRectangle} rect The rectangle being covered.
    */
   cover (rect) {
     if (rect) {
