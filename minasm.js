@@ -11,11 +11,12 @@ require(['vs/editor/editor.main'], function () {
     base: 'vs',
     inherit: true,
     rules: [
-      {token: 'keyword.memory', foreground: Minasm.colors.memory},
-      {token: 'keyword.block', foreground: Minasm.colors.block},
-      {token: 'keyword.variable', foreground: Minasm.colors.variable},
-      {token: 'keyword.flow', foreground: Minasm.colors.flow},
-      {token: 'keyword.unit', foreground: Minasm.colors.unit},
+      {token: 'keyword.inputOutput', foreground: Minasm.colors.inputOutput},
+      {token: 'keyword.blockControl', foreground: Minasm.colors.blockControl},
+      {token: 'keyword.operations', foreground: Minasm.colors.operations},
+      {token: 'keyword.flowControl', foreground: Minasm.colors.flowControl},
+      {token: 'keyword.unitControl', foreground: Minasm.colors.unitControl},
+      {token: 'keyword.world', foreground: Minasm.colors.world},
       {token: 'keyword.invalid', foreground: 'FF0000', fontStyle: 'bold'},
     ],
     colors: {
@@ -104,7 +105,7 @@ require(['vs/editor/editor.main'], function () {
 
         /** @type {string} */
         let scopes = null
-        for (const type of ['memory', 'block', 'variable', 'flow', 'unit']) {
+        for (const type in Minasm.colors) {
           if (Minasm.opcodes[type].includes(op0)) {
             scopes = 'keyword.' + type
             token0.scopes = scopes
@@ -120,13 +121,17 @@ require(['vs/editor/editor.main'], function () {
           break
         }
         const token1 = tokens[1]
-        if (token1.scopes !== 'identifier' && op0 !== 'jump') {
+        if (token1.scopes !== 'identifier' &&
+            op0 !== 'jump' && op0 !== 'status') {
           break
         }
         const op1 = token1.token.toString()
 
         let checked = false
-        for (const ins of ['draw', 'control', 'op', 'lookup', 'ucontrol']) {
+        for (const ins of [
+            'draw', 'control', 'op', 'lookup', 'ucontrol',
+            'getblock', 'setblock', 'setrule', 'message', 'cutscene', 'fetch',
+        ]) {
           if (op0 === ins) {
             checked = true
             if (Minasm.opcodes[ins].includes(op1)) {
@@ -140,9 +145,9 @@ require(['vs/editor/editor.main'], function () {
         }
 
         // check ops
-        const token2 = tokens.at(2)
+        const token2 = tokens[2]
         const op2 = token2?.scopes === 'identifier' && token2.token.toString()
-        const token3 = tokens.at(3)
+        const token3 = tokens[3]
         const op3 = token3?.scopes === 'identifier' && token3.token.toString()
         if (op0 === 'radar' || op0 === 'uradar') {
           if (!Minasm.opcodes.radar.includes(op1)) {
@@ -175,6 +180,10 @@ require(['vs/editor/editor.main'], function () {
             if (Minasm.opcodes.building.includes(op2)) {
               token2.scopes = scopes
             }
+          }
+        } else if (op0 === 'status') {
+          if (Minasm.opcodes.status.includes(op2)) {
+            token2.scopes = scopes
           }
         }
       } while (false)
