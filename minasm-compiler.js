@@ -82,34 +82,47 @@ function (name, requires, factory, onExist = 'warn') {
   const opcodes = {
     // all instructions
     root: [
-      'read', 'write', 'draw', 'print', 'drawflush', 'printflush',
-      'getlink', 'control', 'radar', 'sensor',
-      'set', 'op', 'wait', 'lookup',
+      'read', 'write', 'draw', 'print',
+      'drawflush', 'printflush', 'getlink', 'control', 'radar', 'sensor',
+      'set', 'op', 'wait', 'lookup', 'packcolor',
       'end', 'jump',
       'ubind', 'ucontrol', 'uradar', 'ulocate',
+      'getblock', 'setblock', 'spawn',
+      'status', 'spawnwave', 'setrule',
+      'message', 'cutscene', 'explosion',
+      'setrate', 'fetch', 'getflag',
+      'setflag',
     ],
 
     // instructions by types
-    memory: [
-      'read', 'write', 'draw', 'print', 'drawflush', 'printflush',
+    inputOutput: [
+      'read', 'write', 'draw', 'print',
     ],
-    block: [
-      'getlink', 'control', 'radar', 'sensor',
+    blockControl: [
+      'drawflush', 'printflush', 'getlink', 'control', 'radar', 'sensor',
     ],
-    variable: [
-      'set', 'op', 'wait', 'lookup',
+    operations: [
+      'set', 'op', 'wait', 'lookup', 'packcolor',
     ],
-    flow: [
+    flowControl: [
       'end', 'jump',
     ],
-    unit: [
+    unitControl: [
       'ubind', 'ucontrol', 'uradar', 'ulocate',
+    ],
+    world: [
+      'getblock', 'setblock', 'spawn',
+      'status', 'spawnwave', 'setrule',
+      'message', 'cutscene', 'explosion',
+      'setrate', 'fetch', 'getflag',
+      'setflag',
     ],
 
     // instruction opcodes
     draw: [
-      'clear', 'color', 'stroke', 'line', 'rect', 'lineRect',
-      'poly', 'linePoly', 'triangle', 'image',
+      'clear', 'color', 'col', 'stroke',
+      'line', 'rect', 'lineRect', 'poly', 'linePoly', 'triangle',
+      'image',
     ],
     control: [
       'enabled', 'shoot', 'shootp', 'config', 'color',
@@ -138,24 +151,51 @@ function (name, requires, factory, onExist = 'warn') {
     ],
     ucontrol: [
       'idle', 'stop',
-      'move', 'approach',
-      'boost', 'pathfind',
+      'move', 'approach', 'boost',
       'target', 'targetp',
-      'itemDrop', 'itemTake',
-      'payDrop', 'payTake',
-      'payEnter', 'mine',
-      'flag', 'build',
-      'getBlock', 'within',
+      'itemDrop', 'itemTake', 'payDrop', 'payTake', 'payEnter',
+      'mine',
+      'flag',
+      'build', 'getBlock',
+      'within',
+      'unbind',
     ],
     ulocate: [
       'ore', 'building', 'spawn', 'damaged',
     ],
     building: [
-      'core', 'storage',
-      'generator', 'turret',
-      'factory', 'repair',
-      'rally', 'battery',
-      'reactor',
+      'core', 'storage', 'generator', 'turret',
+      'factory', 'repair', 'battery', 'reactor',
+    ],
+    getblock: [
+      'floor', 'ore', 'block', 'building',
+    ],
+    setblock: [
+      'floor', 'ore', 'block',
+    ],
+    status: [
+      'burning', 'freezing', 'unmoving', 'slow',
+      'wet', 'melting', 'sapped', 'electrified',
+      'spore-slowed', 'tarred', 'overdrive', 'overclock',
+      'shielded', 'boss', 'shocked', 'blasted',
+      'corroded', 'disarmed', 'invincible',
+    ],
+    setrule: [
+      'currentWaveTime', 'waveTimer', 'waves', 'wave',
+      'waveSpacing', 'attackMode', 'enemyCoreBuildRadius', 'dropZoneRadius',
+      'unitCap', 'mapArea', 'lighting', 'ambientLight',
+      'solarMultiplier', 'buildSpeed', 'unitBuildSpeed', 'unitDamage',
+      'blockHealth', 'blockDamage', 'rtsMinWeight', 'rtsMinSquad',
+    ],
+    message: [
+      'notify', 'announce', 'toast', 'mission',
+    ],
+    cutscene: [
+      'pan', 'zoom', 'stop',
+    ],
+    fetch: [
+      'unit', 'unitCount', 'player', 'playerCount',
+      'core', 'coreCount', 'build', 'buildCount',
     ],
   }
 
@@ -849,6 +889,31 @@ function (name, requires, factory, onExist = 'warn') {
           const branch = args.shift()
           return ['jump', Instruction.decodeCondition(args), branch]
         }
+        case 'spawnwave':
+        case 'message':
+          while (args.length < 2) {
+            args.push(Instruction.padding)
+          }
+          break
+        case 'op':
+        case 'status':
+        case 'cutscene':
+        case 'fetch':
+          while (args.length < 4) {
+            args.push(Instruction.padding)
+          }
+          break
+        case 'packcolor':
+          while (args.length < 5) {
+            args.push(Instruction.padding)
+          }
+          break
+        case 'setblock':
+        case 'setrule':
+          while (args.length < 6) {
+            args.push(Instruction.padding)
+          }
+          break
         case 'control':
         case 'ucontrol':
           while (args.length < 7) {
@@ -870,11 +935,16 @@ function (name, requires, factory, onExist = 'warn') {
         case 'radar':
         case 'sensor':
         case 'set':
-        case 'op':
         case 'wait':
         case 'lookup':
         case 'ubind':
         case 'uradar':
+        case 'getblock':
+        case 'spawn':
+        case 'explosion':
+        case 'setrate':
+        case 'getflag':
+        case 'setflag':
           break
         default:
           args.unshift(tokens[0])
@@ -2148,8 +2218,8 @@ function (name, requires, factory, onExist = 'warn') {
 
     /** @type {Object<string, string>} */
     colors: {
-      memory: 'A08A8A', block: 'D4816B', variable: '877BAD',
-      flow: '6BB2B2', unit: 'C7B59D',
+      inputOutput: 'A08A8A', blockControl: 'D4816B', operations: '877BAD',
+      flowControl: '6BB2B2', unitControl: 'C7B59D', world: '6B84D4',
     },
     opcodes,
   }

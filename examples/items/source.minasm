@@ -9,17 +9,17 @@ printflush message1
 .until nCapacity >= 300
 
 .do
-  mItem = mMinItem
+  iItem = iMinItem
   .int inventory
   nMinItem = nItem
 
-  lookup item mItem iItem
-  iItem += 1
-  iItem %= @itemCount
+  iItem = iCurItem
   .int inventory
+  iCurItem += 1
+  iCurItem %= @itemCount
 
   .if nItem <= nMinItem
-    mMinItem = mItem
+    iMinItem = iItem
     i = 0
     .do
       dBlock = %i
@@ -34,13 +34,18 @@ printflush message1
 end
 
 
-.label inventory mItem dCore
+.label inventory iItem dCore
+lookup item mItem iItem
 nItem = dCore.mItem
 .do
   .break iItem == 4
   .break iItem == 5
   .break iItem == 8
-  .break iItem >= 13
+  .if iItem >= 13
+    .if iItem <= 18
+      .break iItem != 16
+    .fi
+  .fi
   jump inventory_normal
 .until
 nItem *= 16
