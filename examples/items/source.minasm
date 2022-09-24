@@ -1,6 +1,9 @@
 print "by：[orange]awa[]\n物品源逻辑，优先填充建材"
 printflush message1
 
+bSerpulo = true
+bErekir = false
+
 .do
   dCore = %i
   i += 1
@@ -35,6 +38,17 @@ end
 
 
 .label inventory iItem dCore
+nItem = 999999
+.if iItem < 16
+  .if bSerpulo == false
+    jump inventory_end
+  .fi
+.elif iItem < 23
+  .if bErekir == false
+    jump inventory_end
+  .fi
+.fi
+
 lookup item mItem iItem
 nItem = dCore.mItem
 .do
@@ -46,8 +60,9 @@ nItem = dCore.mItem
       .break iItem != 16
     .fi
   .fi
-  jump inventory_normal
+  jump inventory_end
 .until
 nItem *= 16
-.label inventory_normal
+
+.label inventory_end
 .reti inventory

@@ -1,34 +1,83 @@
-# mWanted = @titanium
-# mWanted = @thorium
+print "by：[orange]awa[]\n文明搬运豆，无资源时释放单位"
+printflush message1
+
+# mItem = @titanium
+mItem = null
 mUnit = @flare
+mItem2 = null
+mItem3 = null
+mItem4 = null
 
 nUintFlag = @thisy * @mapw
 nUintFlag += @thisx
 
 .label _start
 
+ucontrol unbind
+
+# read preset
+.if mItem !== null
+  .case iItem2
+    mItemCur = mItem2
+    .stop
+    mItemCur = mItem3
+    .stop
+    mItemCur = mItem4
+    .stop
+    mItemCur = null
+  .esac
+  .if mItemCur === null
+    mItemCur = mItem
+    iItem2 = 0
+  .else
+    iItem2 += 2
+  .fi
+.fi
+
 i = 0
 .while i < @links
   # read config
-  .do
-    mWanted = sorter1.@config
-  .when mWanted === null
+  .if mItemCur !== null
+    mWanted = mItemCur
+  .else
+    .do
+      mWanted = sorter1.@config
+    .when mWanted === null
+  .fi
 
   # get link
   dTarget = %i
   i += 1
-
   nTargetCapacity = dTarget.@itemCapacity
-  .if nTargetCapacity >= 10
+  .continue nTargetCapacity < 10
+
+  .while
     nTargetItems = dTarget.mWanted
-    .while nTargetItems < nTargetCapacity
-      .int bindOne
-      .break @unit === null
-      .int carrier
-      bTargetDead = dTarget.@dead
-      .break bTargetDead
-    .done
-  .fi
+    .break nTargetItems >= nTargetCapacity
+
+    .if dCore !== null
+      .while
+        bCoreDead = dCore.@dead
+        .if bCoreDead
+          dCore = null
+          .break
+        .fi
+        nCoreItems = dCore.mWanted
+        .break nCoreItems > 0
+        ucontrol unbind
+      .done
+    .fi
+
+    .int bindOne
+    .break @unit === null
+    ucontrol boost 1
+
+    .int carrier
+    .break carrier_bOk
+
+    bTargetDead = dTarget.@dead
+    .break bTargetDead
+  .done
 .done
 
 end
@@ -82,35 +131,36 @@ bindOne_uFirstUnit = null
 .reti bindOne
 
 
-.label carrier @unit dTarget mWanted nTargetCapacity
-carrier_nTargetItems = dTarget.mWanted
-.if carrier_nTargetItems < nTargetCapacity
+.label carrier @unit dTarget mWanted nTargetItems nTargetCapacity
+carrier_bOk = false
+.if nTargetItems < nTargetCapacity
   # take items
+  # test if we already have the desired items
+  carrier_nUnitCapacity = @unit.@itemCapacity
+  carrier_mUnitItem = @unit.@firstItem
   .do
-    # test if we already have the desired items
-    carrier_nUnitCapacity = @unit.@itemCapacity
-    carrier_mUnitItem = @unit.@firstItem
     .if carrier_mUnitItem == mWanted
       carrier_nUnitItems = @unit.@totalItems
       .break carrier_nUnitItems >= carrier_nUnitCapacity
-      carrier_nTargetWants = nTargetCapacity - carrier_nTargetItems
+      carrier_nTargetWants = nTargetCapacity - nTargetItems
       .break carrier_nUnitItems >= carrier_nTargetWants
     .fi
 
     # move to core
-    ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound carrier_dCore
+    ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound dCore
     ucontrol approach carrier_xCore carrier_yCore 5
 
     # drop unwanted
     carrier_mUnitItem = @unit.@firstItem
     .if carrier_mUnitItem !== null
       .if carrier_mUnitItem != mWanted
-        ucontrol itemDrop carrier_dCore carrier_nUnitCapacity
+        ucontrol itemDrop dCore carrier_nUnitCapacity
       .fi
     .fi
 
     # take all
-    ucontrol itemTake carrier_dCore mWanted carrier_nUnitCapacity
+    ucontrol itemTake dCore mWanted carrier_nUnitCapacity
+    carrier_tTakeCore = @time
 
     .reti carrier
   .until
@@ -119,6 +169,10 @@ carrier_nTargetItems = dTarget.mWanted
   carrier_xTarget = dTarget.@x
   carrier_yTarget = dTarget.@y
   ucontrol approach carrier_xTarget carrier_yTarget 5
+  carrier_tDuration = @time - carrier_tTakeCore
+  .if carrier_tDuration >= 1500
+    ucontrol within carrier_xTarget carrier_yTarget 6 carrier_bOk
+  .fi
   ucontrol itemDrop dTarget carrier_nUnitCapacity
 .fi
 .reti carrier

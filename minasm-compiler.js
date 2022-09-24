@@ -1850,7 +1850,7 @@ function (name, requires, factory, onExist = 'warn') {
             inst.reverseJump()
             program.push(inst)
 
-            program.addBlock('if', inst, [inst])
+            program.addBlock('if', inst, [inst], inst)
             break
           }
           case 'elif': {
@@ -1864,15 +1864,15 @@ function (name, requires, factory, onExist = 'warn') {
             inst.reverseJump()
             program.push(inst)
 
-            block.begin.branch = inst
-            block.begin = inst
+            block.data.branch = inst
+            block.data = inst
             block.ends[block.ends.length - 1] = instEnd
             block.ends.push(inst)
             break
           }
           case 'else': {
             const block = program.testBlock('if', 'else', i)
-            if (!block.begin) {
+            if (!block.data) {
               throw new CompilerError(
                 'excessive else', i, block.ends.at(-1).index)
             }
@@ -1883,8 +1883,8 @@ function (name, requires, factory, onExist = 'warn') {
             const inst = new Instruction('jump', [Instruction.tokenNever], line)
             program.push(inst)
 
-            block.begin.branch = inst
-            block.begin = null
+            block.data.branch = inst
+            block.data = null
             block.ends[block.ends.length - 1] = instEnd
             break
           }

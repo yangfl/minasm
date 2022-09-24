@@ -1,0 +1,72 @@
+nMinItems = 1000
+nMinPower = 0.3
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  jump disable bSwitch == false
+.fi
+
+.do
+  dCore = %i
+  i += 1
+  i %= @links
+  nCapacity = dCore.@itemCapacity
+.until nCapacity >= 300
+
+.if
+  bDisabled = false
+.else
+.label disable
+  bDisabled = true
+.fi
+
+i = 0
+.while i < @links
+  dBlock = %i
+  i += 1
+
+  mBlockType = dBlock.@type
+  .if mBlockType == @inverted-sorter
+    .if bBlockEnabled
+      control config dBlock @plastanium
+    .else
+      control config dBlock @blast-compound
+    .fi
+    .continue
+  .fi
+
+  .continue dBlock == dCore
+  .continue dBlock == switch1
+
+  .if bDisabled == false
+    nBlockTotalItems = dBlock.@totalItems
+
+    .if nBlockTotalItems > 0
+      nPowerNetCapacity = dBlock.@powerNetCapacity
+      .if nPowerNetCapacity > 0
+        nPowerNetStored = dBlock.@powerNetStored
+        nPower = nPowerNetStored / nPowerNetCapacity
+        jump disableBlock nPower < nMinPower
+      .fi
+
+      iItem = 0
+      .do
+        lookup item mItem iItem
+        iItem += 1
+
+        nBlockItems = dBlock.mItem
+        .if nBlockItems > 0
+          nCoreItems = dCore.mItem
+          jump disableBlock nCoreItems < nMinItems
+        .fi
+      .when iItem < @itemCount
+    .fi
+
+    bBlockEnabled = true
+  .else
+.label disableBlock
+    bBlockEnabled = false
+  .fi
+
+  control enabled dBlock bBlockEnabled
+.done
