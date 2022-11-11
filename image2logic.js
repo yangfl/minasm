@@ -43,6 +43,100 @@ function dataURL2Image (url) {
 }
 
 
+/********** preprocessor **********/
+
+/**
+ * @template T
+ * @param {T[]} matrix
+ * @param {number} width
+ * @param {number} height
+ * @param {number} blur
+ * @returns {T[]}
+ */
+function matrixBlur (matrix, width, height, blur = 0) {
+  const matrixBlurred = matrix.slice()
+  if (blur === 0) {
+    return matrixBlurred
+  }
+
+  for (let hc = 0; hc < height; hc++) {
+    for (let wc = 0; wc < width; wc++) {
+      /** @type {Map<number, number>} */
+      const counter = new Map
+      let size = 0
+      for (let dh = -blur; dh <= blur; dh++) {
+        for (let dw = -blur; dw <= blur; dw++) {
+          const w = wc + dw
+          if (w < 0 || w >= width) {
+            continue
+          }
+          const h = hc + dh
+          if (h < 0 || h >= height) {
+            continue
+          }
+          size++
+          const i = width * h + w
+          counter.set(matrix[i], (counter.get(matrix[i]) || 0) + 1)
+        }
+      }
+      const ic = width * hc + wc
+      let maxCount = size / 2
+      for (const [tag, count] of counter) {
+        if (count > maxCount) {
+          maxCount = count
+          matrixBlurred[ic] = tag
+        }
+      }
+    }
+  }
+  return matrixBlurred
+}
+
+
+/**
+ * @param {number[]} matrix
+ * @param {number} width
+ * @param {number} height
+ * @param {number} [left]
+ * @param {number} [top]
+ * @param {number} [right]
+ * @param {number} [bottom]
+ * @returns {number}
+ */
+function matrixBackground (
+    matrix, width, height, left = 0, matrixTop = 0, right = -1, bottom = -1) {
+  const right_ = right >= 0 ? right : width
+  const bottom_ = bottom >= 0 ? bottom : height
+  if (left >= right_ || top >= bottom_) {
+    return 0
+  }
+
+  /** @type {number[]} */
+  const tags = []
+
+  for (let y = top; y < bottom_; y++) {
+    for (let x = left; x < right_; x++) {
+      const tag = matrix[width * y + x]
+      while (tags.length <= tag) {
+        tags.push(0)
+      }
+      tags[tag] += 1
+    }
+  }
+
+  let background = 0
+  let count = tags[0]
+  for (let i = 1; i < tags.length; i++) {
+    if (tags[i] > count) {
+      background = i
+      count = tags[i]
+    }
+  }
+
+  return background
+}
+
+
 /********** k-means **********/
 
 /**
@@ -289,54 +383,6 @@ function kmeans (
 }
 
 
-/**
- * @template T
- * @param {T[]} matrix
- * @param {number} width
- * @param {number} height
- * @param {number} blur
- * @returns {T[]}
- */
-function matrixBlur (matrix, width, height, blur = 0) {
-  const matrixBlurred = matrix.slice()
-  if (blur === 0) {
-    return matrixBlurred
-  }
-
-  for (let hc = 0; hc < height; hc++) {
-    for (let wc = 0; wc < width; wc++) {
-      /** @type {Map<number, number>} */
-      const counter = new Map
-      let size = 0
-      for (let dh = -blur; dh <= blur; dh++) {
-        for (let dw = -blur; dw <= blur; dw++) {
-          const w = wc + dw
-          if (w < 0 || w >= width) {
-            continue
-          }
-          const h = hc + dh
-          if (h < 0 || h >= height) {
-            continue
-          }
-          size++
-          const i = width * h + w
-          counter.set(matrix[i], (counter.get(matrix[i]) || 0) + 1)
-        }
-      }
-      const ic = width * hc + wc
-      let maxCount = size / 2
-      for (const [tag, count] of counter) {
-        if (count > maxCount) {
-          maxCount = count
-          matrixBlurred[ic] = tag
-        }
-      }
-    }
-  }
-  return matrixBlurred
-}
-
-
 /********** orthogonalization **********/
 
 /**
@@ -524,15 +570,21 @@ class TaggedRectangle extends Rectangle {
 
 
 /**
+ * @typedef OrthogonalizerOption
+ * @property {number} [background] Background tag
+ * @property {number} [noise] Image noise
+ */
+
+/**
  * @callback Orthogonalizer
  * @param {number[]} matrix
- * @param {number} matrixWidth
- * @param {number} matrixHeight
- * @param {number} [matrixLeft]
- * @param {number} [matrixTop]
- * @param {number} [matrixRight]
- * @param {number} [matrixBottom]
- * @param {any} [options]
+ * @param {number} width
+ * @param {number} height
+ * @param {number} [left]
+ * @param {number} [top]
+ * @param {number} [right]
+ * @param {number} [bottom]
+ * @param {OrthogonalizerOption} [options]
  * @returns {[TaggedRectangle[], number[]]}
  */
 
@@ -540,29 +592,29 @@ class TaggedRectangle extends Rectangle {
 /**
  * @type {Orthogonalizer}
  */
-function matrix2rectsNonOverlapped (
-    matrix, matrixWidth, matrixHeight,
-    matrixLeft = 0, matrixTop = 0, matrixRight = -1, matrixBottom = -1,
-    options = null) {
-  const matrixRight_ = matrixRight >= 0 ? matrixRight : matrixWidth
-  const matrixBottom_ = matrixBottom >= 0 ? matrixBottom : matrixHeight
-  if (matrixLeft >= matrixRight_ || matrixTop >= matrixBottom_) {
+function matrix2rectsGreedy (
+    matrix, width, height, left = 0, top = 0, right = -1, bottom = -1,
+    options = {}) {
+  const right_ = right >= 0 ? right : width
+  const bottom_ = bottom >= 0 ? bottom : height
+  if (left >= right_ || top >= bottom_) {
     return []
   }
 
-  const width = matrixRight_ - matrixLeft
-  const height = matrixBottom_ - matrixTop
-  const area = width * height
+  const width_ = right_ - left
+  const height_ = bottom_ - top
+  const area = width_ * height_
+  const background = 'background' in options ? options.background : -1
 
   /** @type {number[]} */
-  const canvas = new Array(area)
+  const canvas = new Array(area).fill(background)
   /** @type {TaggedRectangle[]} */
   const rects = []
 
-  for (let t = 0; t < height; t++) {
-    for (let l = 0; l < width; l++) {
-      const matrixTl = matrixWidth * (t + matrixTop) + (l + matrixLeft)
-      const tl = width * t + l
+  for (let t = 0; t < height_; t++) {
+    for (let l = 0; l < width_; l++) {
+      const matrixTl = width * (t + top) + (l + left)
+      const tl = width_ * t + l
       if (matrix[matrixTl] === canvas[tl]) {
         continue
       }
@@ -571,24 +623,24 @@ function matrix2rectsNonOverlapped (
       let found = false
       let r = l
       let b = t
-      for (let b_ = t; b_ < height && !found; b_++) {
-        for (let r_ = l; r_ < width; r_++) {
-          const matrixB_r_ = matrixWidth * (b_ + matrixTop) + (r_ + matrixLeft)
+      for (let b_ = t; b_ < height_ && !found; b_++) {
+        for (let r_ = l; r_ < width_; r_++) {
+          const matrixB_r_ = width * (b_ + top) + (r_ + left)
           if (matrix[matrixB_r_] !== tag) {
             break
           }
           r = r_
           b = b_
-          const b_r_ = width * b_ + r_
+          const b_r_ = width_ * b_ + r_
           found ||= canvas[b_r_] !== tag
         }
       }
       r++
 
-      for (let b_ = b + 1; b_ < height; b_++) {
+      for (let b_ = b + 1; b_ < height_; b_++) {
         let every = true
         for (let r_ = l; r_ < r; r_++) {
-          const matrixB_r_ = matrixWidth * (b_ + matrixTop) + (r_ + matrixLeft)
+          const matrixB_r_ = width * (b_ + top) + (r_ + left)
           if (matrix[matrixB_r_] !== tag) {
             every = false
             break
@@ -602,11 +654,11 @@ function matrix2rectsNonOverlapped (
       b++
 
       rects.push(new TaggedRectangle(
-        l + matrixLeft, t + matrixTop, r + matrixLeft, b + matrixTop, tag))
+        l + left, t + top, r + left, b + top, tag))
 
       for (let h = t; h < b; h++) {
         for (let w = l; w < r; w++) {
-          const i = width * h + w
+          const i = width_ * h + w
           canvas[i] = tag
         }
       }
@@ -621,24 +673,24 @@ function matrix2rectsNonOverlapped (
 /**
  * @type {Orthogonalizer}
  */
-function matrix2rectsOverlapped (
-    matrix, matrixWidth, matrixHeight,
-    matrixLeft = 0, matrixTop = 0, matrixRight = -1, matrixBottom = -1,
-    options = null) {
-  const matrixRight_ = matrixRight >= 0 ? matrixRight : matrixWidth
-  const matrixBottom_ = matrixBottom >= 0 ? matrixBottom : matrixHeight
-  if (matrixLeft >= matrixRight_ || matrixTop >= matrixBottom_) {
+function matrix2rectsOverlapping (
+    matrix, width, height, left = 0, top = 0, right = -1, bottom = -1,
+    options = {}) {
+  const right_ = right >= 0 ? right : width
+  const bottom_ = bottom >= 0 ? bottom : height
+  if (left >= right_ || top >= bottom_) {
     return []
   }
 
-  const width = matrixRight_ - matrixLeft
-  const height = matrixBottom_ - matrixTop
-  const area = width * height
+  const width_ = right_ - left
+  const height_ = bottom_ - top
+  const area = width_ * height_
+  const background = 'background' in options ? options.background : -1
 
   /** @type {number[]} */
-  const canvas = new Array(area)
+  const canvas = new Array(area).fill(background)
   /** @type {number[]} */
-  const real = new Array(matrix.length).fill(-1)
+  const real = new Array(matrix.length).fill(background)
   /** @type {TaggedRectangle[]} */
   const rects = new Array(area).fill(null)
   /** @type {boolean[]} */
@@ -648,10 +700,10 @@ function matrix2rectsOverlapped (
   for (let changed = true; changed; ) {
     changed = false
 
-    for (let t = 0; t < height; t++) {
-      for (let l = 0; l < width; l++) {
-        const matrixTl = matrixWidth * (t + matrixTop) + (l + matrixLeft)
-        const tl = width * t + l
+    for (let t = 0; t < height_; t++) {
+      for (let l = 0; l < width_; l++) {
+        const matrixTl = width * (t + top) + (l + left)
+        const tl = width_ * t + l
         if (matrix[matrixTl] === canvas[tl]) {
           continue
         }
@@ -659,21 +711,21 @@ function matrix2rectsOverlapped (
         const tag = matrix[matrixTl]
 
         let r = l
-        for (let r_ = l + 1; r_ < width; r_++) {
-          const tr_ = width * t + r_
+        for (let r_ = l + 1; r_ < width_; r_++) {
+          const tr_ = width_ * t + r_
           if (pins[tr_]) {
             break
           }
-          const matrixTr_ = matrixWidth * (t + matrixTop) + (r_ + matrixLeft)
+          const matrixTr_ = width * (t + top) + (r_ + left)
           if (matrix[matrixTr_] === tag && canvas[tr_] !== tag) {
             r = r_
           }
         }
         let b = t
-        for (let b_ = t + 1; b_ < height; b_++) {
+        for (let b_ = t + 1; b_ < height_; b_++) {
           let pinned = false
           for (let w = l; w <= r; w++) {
-            if (pins[width * b_ + w]) {
+            if (pins[width_ * b_ + w]) {
               pinned = true
               break
             }
@@ -681,8 +733,8 @@ function matrix2rectsOverlapped (
           if (pinned) {
             break
           }
-          const matrixB_r = matrixWidth * (b_ + matrixTop) + (r + matrixLeft)
-          const b_r = width * b_ + r
+          const matrixB_r = width * (b_ + top) + (r + left)
+          const b_r = width_ * b_ + r
           if (matrix[matrixB_r] === tag && canvas[b_r] !== tag) {
             b = b_
           }
@@ -691,43 +743,42 @@ function matrix2rectsOverlapped (
         r++
         b++
 
-        if (options && options.noise &&
-            r - l <= options.noise && b - t <= options.noise) {
+        if (options.noise && r - l <= options.noise && b - t <= options.noise) {
           for (let h = t; h < b; h++) {
             for (let w = l; w < r; w++) {
-              const i = width * h + w
+              const i = width_ * h + w
               canvas[i] = tag
             }
           }
         } else {
           const rect = new TaggedRectangle(
-            l + matrixLeft, t + matrixTop, r + matrixLeft, b + matrixTop, tag)
+            l + left, t + top, r + left, b + top, tag)
           count++
           if (count > 99999) {
             throw new Error('too many rects')
           }
 
-          if (rect.atCorner(1, matrix, matrixWidth,
-                            matrixLeft, matrixTop, matrixRight, matrixBottom)) {
-            pins[width * t + (r - 1)] = true
+          if (rect.atCorner(1, matrix, width,
+                            left, top, right, bottom)) {
+            pins[width_ * t + (r - 1)] = true
           }
-          if (rect.atCorner(2, matrix, matrixWidth,
-                            matrixLeft, matrixTop, matrixRight, matrixBottom)) {
-            pins[width * (b - 1) + l] = true
+          if (rect.atCorner(2, matrix, width,
+                            left, top, right, bottom)) {
+            pins[width_ * (b - 1) + l] = true
           }
-          if (rect.atCorner(3, matrix, matrixWidth,
-                            matrixLeft, matrixTop, matrixRight, matrixBottom)) {
-            pins[width * (b - 1) + (r - 1)] = true
+          if (rect.atCorner(3, matrix, width,
+                            left, top, right, bottom)) {
+            pins[width_ * (b - 1) + (r - 1)] = true
           }
 
           for (let h = t; h < b; h++) {
             for (let w = l; w < r; w++) {
-              const i = width * h + w
+              const i = width_ * h + w
               canvas[i] = tag
               rect.cover(rects[i])
               rects[i] = rect
 
-              const matrixI = matrixWidth * (h + matrixTop) + (w + matrixLeft)
+              const matrixI = width * (h + top) + (w + left)
               real[matrixI] = tag
             }
           }
@@ -792,9 +843,10 @@ const flushThreshold = 256
 
 /**
  * @param {TaggedRectangle[]} rects
+ * @param {number} threshold
  * @returns {number}
  */
-function rects2cmdCount (rects) {
+function rects2cmdCount (rects, threshold = flushThreshold) {
   let count = 0
   let tagPrev = -1
   for (let i = 0; i < rects.length; i++) {
@@ -805,13 +857,13 @@ function rects2cmdCount (rects) {
     }
     count++
   }
-  return count + Math.ceil(count / flushThreshold)
+  return count + Math.ceil(count / threshold)
 }
 
 
 /**
  * @param {TaggedRectangle[]} rects
- * @param {string[]} colorsDraw
+ * @param {string[]} colorsCmd
  * @param {number} displayHeight
  * @param {string} displayName
  * @param {number} cmdCount
@@ -819,7 +871,7 @@ function rects2cmdCount (rects) {
  * @throws {Error}
  */
 function rects2cmds (
-    rects, colorsDraw, displayHeight, displayName, cmdCount = -1) {
+    rects, colorsCmd, displayHeight, displayName, cmdCount = -1) {
   const drawflush = 'drawflush ' + displayName
 
   let count = 0
@@ -830,7 +882,7 @@ function rects2cmds (
     const tag = rects[i].tag
     if (tag !== tagPrev) {
       tagPrev = tag
-      cmds.push(colorsDraw[tag])
+      cmds.push(colorsCmd[tag])
       count++
       if (count % flushThreshold === 0) {
         cmds.push(drawflush)
@@ -855,29 +907,29 @@ function rects2cmds (
 
 
 /**
- * @param {string[][]} cmdsArr
+ * @param {string[][]} buckets
  * @param {TaggedRectangle[]} rects
- * @param {string[]} colorsDraw
+ * @param {string[]} colorsCmd
  * @param {number} displayHeight
  * @param {string} displayName
  * @param {number} cmdCount
  * @param {boolean} force
  */
-function cmdsArrAddRects (
-    cmdsArr, rects, colorsDraw, displayHeight, displayName, cmdCount = -1,
+function bucketsAddRects (
+    buckets, rects, colorsCmd, displayHeight, displayName, cmdCount = -1,
     force = false) {
-  for (let i = 0; i < cmdsArr.length; i++) {
-    const cmdCountNew = cmdsArr[i].length + cmdCount
+  for (let i = 0; i < buckets.length; i++) {
+    const cmdCountNew = buckets[i].length + cmdCount
     if (cmdCountNew <= 999 && (force || cmdCountNew >= 990)) {
-      cmdsArr[i].push(...rects2cmds(
-        rects, colorsDraw, displayHeight, displayName, cmdCount))
+      buckets[i].push(...rects2cmds(
+        rects, colorsCmd, displayHeight, displayName, cmdCount))
       return true
     }
   }
 
   if (force) {
-    cmdsArr.push(rects2cmds(
-      rects, colorsDraw, displayHeight, displayName, cmdCount))
+    buckets.push(rects2cmds(
+      rects, colorsCmd, displayHeight, displayName, cmdCount))
   }
   return force
 }
@@ -886,13 +938,13 @@ function cmdsArrAddRects (
 /**
  * @callback Plotter
  * @param {number[]} matrix
- * @param {number} matrixWidth
- * @param {number} matrixHeight
+ * @param {number} width
+ * @param {number} height
  * @param {Orthogonalizer} orthogonalizer
- * @param {string[]} colorsDraw
+ * @param {string[]} colorsCmd
  * @param {number} displayHeight
  * @param {string} displayName
- * @param {any} [options]
+ * @param {OrthogonalizerOption} [options]
  * @returns {[string[][], number[]]}
  */
 
@@ -900,14 +952,14 @@ function cmdsArrAddRects (
 /**
  * @type {Plotter}
  */
-function matrix2cmdsArrUnbarriered (
-    matrix, matrixWidth, matrixHeight, orthogonalizer,
-    colorsDraw, displayHeight, displayName, options = null) {
+function matrix2bucketsUnbarriered (
+    matrix, width, height, orthogonalizer,
+    colorsCmd, displayHeight, displayName, options = {}) {
   const [rects, real] = orthogonalizer(
-    matrix, matrixWidth, matrixHeight, 0, 0, -1, -1, options)
+    matrix, width, height, 0, 0, -1, -1, options)
   const drawflush = 'drawflush ' + displayName
   /** @type {string[][]} */
-  const cmdsArr = [[]]
+  const buckets = [[]]
 
   let count = 0
   let tagPrev = -1
@@ -915,103 +967,163 @@ function matrix2cmdsArrUnbarriered (
     const tag = rects[i].tag
     if (tag !== tagPrev) {
       tagPrev = tag
-      if (cmdsArr[cmdsArr.length - 1].length > 999 - 3) {
-        cmdsArr[cmdsArr.length - 1].push(drawflush)
-        cmdsArr.push([colorsDraw[tag]])
+      if (buckets[buckets.length - 1].length > 999 - 3) {
+        buckets[buckets.length - 1].push(drawflush)
+        buckets.push([colorsCmd[tag]])
         count = 1
       } else {
-        cmdsArr[cmdsArr.length - 1].push(colorsDraw[tag])
+        buckets[buckets.length - 1].push(colorsCmd[tag])
         count++
         if (count % flushThreshold === 0) {
-          cmdsArr[cmdsArr.length - 1].push(drawflush)
+          buckets[buckets.length - 1].push(drawflush)
         }
       }
     }
 
-    if (cmdsArr[cmdsArr.length - 1].length > 999 - 2) {
-      cmdsArr[cmdsArr.length - 1].push(drawflush)
-      cmdsArr.push([colorsDraw[tag]])
+    if (buckets[buckets.length - 1].length > 999 - 2) {
+      buckets[buckets.length - 1].push(drawflush)
+      buckets.push([colorsCmd[tag]])
       count = 1
     }
-    cmdsArr[cmdsArr.length - 1].push(rect2cmd(rects[i], displayHeight))
+    buckets[buckets.length - 1].push(rect2cmd(rects[i], displayHeight))
     count++
     if (count % flushThreshold === 0) {
-      cmdsArr[cmdsArr.length - 1].push(drawflush)
+      buckets[buckets.length - 1].push(drawflush)
     }
   }
   if (count % flushThreshold !== 0) {
-    cmdsArr[cmdsArr.length - 1].push(drawflush)
+    buckets[buckets.length - 1].push(drawflush)
   }
 
-  return [cmdsArr, real]
+  return [buckets, real]
+}
+
+
+class MatrixCmdBlock {
+  /**
+   * end of y coordinate range (exclusive)
+   * @type {number}
+   */
+  bottom
+  /**
+   * command number
+   * @type {number}
+   */
+  cmdCount
+  /**
+   * tagged rectangles
+   * @type {TaggedRectangle[]}
+   */
+  rects
+  /**
+   * real matrix draw by `rects`
+   * @type {number[]}
+   */
+  real
+
+  /**
+   * @param {number} bottom
+   * @param {number} cmdCount
+   * @param {TaggedRectangle[]} rects
+   * @param {number[]} real
+   */
+  constructor (bottom, cmdCount, rects, real) {
+    this.bottom = bottom
+    this.cmdCount = cmdCount
+    this.rects = rects
+    this.real = real
+  }
 }
 
 
 /**
  * @type {Plotter}
  */
-function matrix2cmdsArrBarriered (
-    matrix, matrixWidth, matrixHeight, orthogonalizer,
-    colorsDraw, displayHeight, displayName, options = null) {
+function matrix2bucketsBarriered (
+    matrix, width, height, orthogonalizer,
+    colorsCmd, displayHeight, displayName, options = {}) {
   /** @type {string[][]} */
-  const cmdsArr = []
+  const buckets = []
   /** @type {number[]} */
   const real = new Array(matrix.length).fill(-1)
-  /** @type {[number, number, TaggedRectangle[], number[]][]} */
+  /** @type {MatrixCmdBlock[]} */
   const prevs = []
 
-  for (let top = 0, bottom = 1; top < matrixHeight; bottom++) {
-    const [rects, realRects] = orthogonalizer(
-      matrix, matrixWidth, matrixHeight, 0, top, -1, bottom, options)
+  const options_ = Object.assign({}, options)
+  const dynamicBackground = !('background' in options)
+
+  for (let top = 0, bottom = 1; top < height; bottom++) {
+    // calculate rects
+    if (dynamicBackground) {
+      options_.background =
+        matrixBackground(matrix, width, height, 0, top, -1, bottom)
+    }
+    const [rects, rectsReal] = orthogonalizer(
+      matrix, width, height, 0, top, -1, bottom, options_)
+    rects.unshift(new TaggedRectangle(
+      0, top, width, bottom, options_.background))
     const cmdCount = rects2cmdCount(rects)
 
+    // if under threshold, save candidate
     if (cmdCount <= flushThreshold + 1 || bottom - top === 1) {
       if (bottom - top > 1) {
         while (prevs.length > 0 &&
-               cmdCount <= prevs[prevs.length - 1][1]) {
+               cmdCount <= prevs[prevs.length - 1].cmdCount) {
+          // the current one beats the previous
           prevs.pop()
         }
       } else if (cmdCount > flushThreshold + 1) {
+        // out of threshold within 1 line
         console.warn(top, cmdCount)
       }
-      prevs.push([bottom, cmdCount, rects, realRects])
+      // save candidate
+      prevs.push(new MatrixCmdBlock(bottom, cmdCount, rects, rectsReal))
     }
 
-    if (cmdCount > flushThreshold + 1 || bottom >= matrixHeight) {
+    // if exceed threshold, determine which cmd bucket to use
+    if (cmdCount > flushThreshold + 1 || bottom >= height) {
       /** @type {?number[]} */
-      let realRects = null
+      let rectsReal = null
+
+      // find a best match
       for (let i = prevs.length - 1; i >= 0; i--) {
-        if (cmdsArrAddRects(cmdsArr, prevs[i][2], colorsDraw, displayHeight,
-                            displayName, prevs[i][1])) {
-          bottom = prevs[i][0]
-          realRects = prevs[i][3]
+        if (bucketsAddRects(buckets, prevs[i].rects, colorsCmd,
+                            displayHeight, displayName, prevs[i].cmdCount)) {
+          bottom = prevs[i].bottom
+          rectsReal = prevs[i].real
           break
         }
       }
-      if (realRects === null) {
+
+      // flush this block anyway
+      if (rectsReal === null) {
         const last = prevs[prevs.length - 1]
-        if (!cmdsArrAddRects(cmdsArr, last[2], colorsDraw, displayHeight,
-                             displayName, last[1], true)) {
-          cmdsArr.push(rects2cmds(
-            last[2], colorsDraw, displayHeight, displayName, last[1]))
+        if (!bucketsAddRects(buckets, last.rects, colorsCmd,
+                            displayHeight, displayName, last.cmdCount, true)) {
+          buckets.push(rects2cmds(
+            last.rects, colorsCmd, displayHeight, displayName, last.cmdCount))
         }
-        bottom = last[0]
-        realRects = last[3]
+        bottom = last.bottom
+        rectsReal = last.real
       }
 
+      // render real matrix
       for (let h = top; h < bottom; h++) {
-        for (let w = 0; w < matrixWidth; w++) {
-          if (realRects[matrixWidth * h + w] === undefined) debugger
-          real[matrixWidth * h + w] = realRects[matrixWidth * h + w]
+        for (let w = 0; w < width; w++) {
+          if (rectsReal[width * h + w] === undefined) {
+            debugger
+          }
+          real[width * h + w] = rectsReal[width * h + w]
         }
       }
 
+      // go next
       top = bottom
       prevs.length = 0
     }
   }
 
-  return [cmdsArr, real]
+  return [buckets, real]
 }
 
 
@@ -1144,18 +1256,23 @@ form.addEventListener('change', async function (event) {
   /** @type {Orthogonalizer} */
   let orthogonalizer
   switch (form.elements['backend'].value) {
-    case 'nonoverlapped':
-      plotter = matrix2cmdsArrUnbarriered
-      orthogonalizer = matrix2rectsNonOverlapped
+    case 'greedy':
+      plotter = matrix2bucketsUnbarriered
+      orthogonalizer = matrix2rectsGreedy
       break
+    case 'greedy-block':
+      plotter = matrix2bucketsBarriered
+      orthogonalizer = matrix2rectsGreedy
+      break
+    case 'overlapping':
     default:
-      plotter = matrix2cmdsArrBarriered
-      orthogonalizer = matrix2rectsOverlapped
+      plotter = matrix2bucketsBarriered
+      orthogonalizer = matrix2rectsOverlapping
       break
   }
   /** @type {HTMLCanvasElement} */
   const canvas = form.getElementsByClassName('image2logic--canvas')[0]
-  const [cmdsArr, tagsReal] = plotter(
+  const [buckets, tagsReal] = plotter(
     tags, imageData.width, imageData.height, orthogonalizer,
     colorsRgb.map(color => 'draw color ' + color.join(' ') + ' 255'),
     canvas.height, form.elements['display-name'].value || 'display1', {
@@ -1164,15 +1281,15 @@ form.addEventListener('change', async function (event) {
   /** @type {HTMLSpanElement} */
   const spanCommandsNumber =
     form.getElementsByClassName('image2logic--command-numbers')[0]
-  spanCommandsNumber.textContent = cmdsArr.map(cmds => cmds.length).join(', ')
+  spanCommandsNumber.textContent = buckets.map(cmds => cmds.length).join(', ')
   /** @type {HTMLTextAreaElement} */
   const output = form.elements['output']
   output.value = ''
   /** @type {HTMLElement} */
   const elmCopyers = form.getElementsByClassName('image2logic--copyers')[0]
   elmCopyers.textContent = ''
-  for (let i = 0; i < cmdsArr.length; i++) {
-    const cmds = cmdsArr[i]
+  for (let i = 0; i < buckets.length; i++) {
+    const cmds = buckets[i]
     const button = document.createElement('button')
     button.type = 'button'
     button.textContent = `Copy ${i + 1}`

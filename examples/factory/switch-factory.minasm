@@ -1,4 +1,4 @@
-nMinItems = 1000
+nMinItem = 1000
 nMinPower = 0.3
 
 .if switch1 !== null
@@ -54,10 +54,10 @@ i = 0
         lookup item mItem iItem
         iItem += 1
 
-        nBlockItems = dBlock.mItem
-        .if nBlockItems > 0
-          nCoreItems = dCore.mItem
-          jump disableBlock nCoreItems < nMinItems
+        nBlockItem = dBlock.mItem
+        .if nBlockItem > 0
+          nCoreItem = dCore.mItem
+          jump disableBlock nCoreItem < nMinItem
         .fi
       .when iItem < @itemCount
     .fi

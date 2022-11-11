@@ -1,79 +1,68 @@
-print "by：[orange]awa[]\n[purple]全自动核弹井[]"
+mUnit = @flare
+nThreshold = 3
 
-nThoriumStorage = container1.@thorium
-.if nThoriumStorage < 35
-  control enabled reactor1 false
-  control enabled unloader1 false
-  control enabled unloader2 true
+nUintFlag = @thisy * @mapw
+nUintFlag += @thisx
 
-  print "\n[acid]抓取poly运送核材料...[]"
-  printflush message1
+.label _start
 
-  .int initNublear
-  .int bindOne
-  end @unit === null
 
-  dTarget = container1
-  mWanted = @thorium
-  nTargetCapacity = 40
-  .int carrier
+dTarget = reactor1
+mWanted = @thorium
+.int tryCarrier
+bOk = tryCarrier_bOk
+dTarget = reactor2
+mWanted = @blast-compound
+.int tryCarrier
+bOk += tryCarrier_bOk
+dTarget = mixer1
+mWanted = @titanium
+.int tryCarrier
+bOk += tryCarrier_bOk
 
-  end
+.if bOk == false
+  .int backToCore
+  .if backToCore_bWithin
+    ucontrol unbind
+    ubind null
+  .fi
 .fi
-
-.if reactor1 === null
-  print "\n[orange]抓取poly制造核弹...[]"
-  printflush message1
-
-  .int initNublear
-  .int bindOne
-  end @unit === null
-
-  xReactor = @thisx + 1
-  yReactor = @thisy - 2
-  ucontrol approach xReactor yReactor 5
-  ucontrol build xReactor yReactor @thorium-reactor
-
-  end
-.fi
-
-ucontrol unbind
-
-nHeat = reactor1.@heat
-nThorium = reactor1.@thorium
-.if nHeat > 0.98
-  control enabled reactor1 false
-  bEnabledIn = nThorium < 1
-  control enabled unloader1 bEnabledIn
-  control enabled unloader2 false
-
-  nPercentage = nHeat * 100
-  print "\n[acid]充能完毕\n热量："
-  print nPercentage
-  print "%[]"
-  printflush message1
-  end
-.fi
-
-nThoriumWanted = 1 - nHeat
-nThoriumWanted *= 10
-bEnabledIn = nThorium < nThoriumWanted
-bEnabledOut = bEnabledIn == false
-control enabled unloader1 bEnabledIn
-control enabled unloader2 bEnabledOut
-control enabled reactor1 true
-
-print "\n[red]充能中"
-printflush message1
 
 end
 
 
-.label initNublear
-mUnit = @poly
-nUintFlag = @thisy * @mapw
-nUintFlag += @thisx
-.reti initNublear
+.label tryCarrier dTarget mWanted nThreshold
+nTargetCapacity = dTarget.@itemCapacity
+.while
+  tryCarrier_bOk = false
+
+  nTargetItems = dTarget.mWanted
+  nTargetItems += nThreshold
+  .break nTargetItems >= nTargetCapacity
+
+  .if dCore !== null
+    bCoreDead = dCore.@dead
+    .if bCoreDead
+      dCore = null
+    .else
+      nCoreItems = dCore.mWanted
+      .break nCoreItems == 0
+    .fi
+  .fi
+
+  bTargetDead = dTarget.@dead
+  .break bTargetDead
+
+  tryCarrier_bOk = true
+
+  .int bindOne
+  .break @unit === null
+  ucontrol boost 1
+
+  .int carrier
+  .break carrier_bOk
+.done
+.reti tryCarrier
 
 
 .label bindOne mUnit nUintFlag
@@ -155,3 +144,12 @@ carrier_bOk = false
   ucontrol itemDrop dTarget carrier_nUnitCapacity
 .fi
 .reti carrier
+
+
+.label backToCore
+.if @unit !== null
+  ulocate building core false 0 backToCore_xCore backToCore_yCore backToCore_bCoreFound backToCore_dCore
+  ucontrol approach backToCore_xCore backToCore_yCore 5
+  ucontrol within backToCore_xCore backToCore_yCore 6 backToCore_bWithin
+.fi
+.reti backToCore

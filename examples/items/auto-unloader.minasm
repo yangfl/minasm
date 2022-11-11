@@ -1,0 +1,15 @@
+.label autoUnloader dContainer mItem
+autoUnloader_nItem = dContainer.mItem
+.if autoUnloader_nItem < 50
+  autoUnloader_i = 0
+  .do
+    autoUnloader_dBlock = %autoUnloader_i
+    autoUnloader_i += 1
+    autoUnloader_mBlock = autoUnloader_dBlock.@type
+    .if autoUnloader_mBlock == @unloader
+      control config autoUnloader_dBlock mItem
+      control enabled autoUnloader_dBlock true
+    .fi
+  .when autoUnloader_i < @links
+.fi
+.reti autoUnloader

@@ -7,6 +7,7 @@ mUnit = @flare
 mItem2 = null
 mItem3 = null
 mItem4 = null
+nThreshold = 5
 
 nUintFlag = @thisy * @mapw
 nUintFlag += @thisx
@@ -14,6 +15,11 @@ nUintFlag += @thisx
 .label _start
 
 ucontrol unbind
+
+.if switch1 !== null
+  bEnabled = switch1.@enabled
+  end bEnabled == false
+.fi
 
 # read preset
 .if mItem !== null
@@ -48,25 +54,37 @@ i = 0
   # get link
   dTarget = %i
   i += 1
-  nTargetCapacity = dTarget.@itemCapacity
-  .continue nTargetCapacity < 10
+  .int tryCarrier
+.done
 
+end
+
+
+.label tryCarrier dTarget mWanted nThreshold
+tryCarrier_bOk = false
+nTargetCapacity = dTarget.@itemCapacity
+.if nTargetCapacity >= 10
   .while
+    tryCarrier_bOk = false
+
     nTargetItems = dTarget.mWanted
+    nTargetItems += nThreshold
     .break nTargetItems >= nTargetCapacity
 
     .if dCore !== null
-      .while
-        bCoreDead = dCore.@dead
-        .if bCoreDead
-          dCore = null
-          .break
-        .fi
+      bCoreDead = dCore.@dead
+      .if bCoreDead
+        dCore = null
+      .else
         nCoreItems = dCore.mWanted
-        .break nCoreItems > 0
-        ucontrol unbind
-      .done
+        .break nCoreItems == 0
+      .fi
     .fi
+
+    bTargetDead = dTarget.@dead
+    .break bTargetDead
+
+    tryCarrier_bOk = true
 
     .int bindOne
     .break @unit === null
@@ -74,13 +92,9 @@ i = 0
 
     .int carrier
     .break carrier_bOk
-
-    bTargetDead = dTarget.@dead
-    .break bTargetDead
   .done
-.done
-
-end
+.fi
+.reti tryCarrier
 
 
 .label bindAll mUnit

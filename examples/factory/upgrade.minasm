@@ -7,13 +7,25 @@ nUintFlag = @thisy * @mapw
 nUintFlag += @thisx
 
 .while
-  bUnitDead = @unit.@dead
-  .if bUnitDead == false
+  .do
+    bUnitDead = @unit.@dead
+    .break bUnitDead
+
     nUnitControlled = @unit.@controlled
-    .break nUnitControlled != @ctrlPlayer
-  .fi
+    .break nUnitControlled == @ctrlPlayer
+
+    .if nUnitControlled == @ctrlProcessor
+      nUnitController = @unit.@controller
+      .break nUnitController != @this
+    .fi
+
+    jump bindOk
+  .until
+
   ubind mUnit
 .done
+.label bindOk
+
 ucontrol flag nUintFlag
 ucontrol boost true
 

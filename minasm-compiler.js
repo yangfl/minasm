@@ -891,7 +891,7 @@ function (name, requires, factory, onExist = 'warn') {
         }
         case 'spawnwave':
         case 'message':
-          while (args.length < 2) {
+          while (args.length < 1) {
             args.push(Instruction.padding)
           }
           break
@@ -899,30 +899,30 @@ function (name, requires, factory, onExist = 'warn') {
         case 'status':
         case 'cutscene':
         case 'fetch':
-          while (args.length < 4) {
+          while (args.length < 3) {
             args.push(Instruction.padding)
           }
           break
         case 'packcolor':
-          while (args.length < 5) {
+          while (args.length < 4) {
             args.push(Instruction.padding)
           }
           break
         case 'setblock':
         case 'setrule':
-          while (args.length < 6) {
+          while (args.length < 5) {
             args.push(Instruction.padding)
           }
           break
         case 'control':
         case 'ucontrol':
-          while (args.length < 7) {
+          while (args.length < 6) {
             args.push(Instruction.padding)
           }
           break
         case 'draw':
         case 'ulocate':
-          while (args.length < 8) {
+          while (args.length < 7) {
             args.push(Instruction.padding)
           }
           break

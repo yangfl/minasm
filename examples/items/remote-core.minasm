@@ -1,0 +1,51 @@
+dContainer = null
+dCore = null
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+
+  nCapacity = dBlock.@itemCapacity
+  .if nCapacity >= 300
+    .if dContainer
+      dCore = dBlock
+      jump foundCore
+    .else
+      dContainer = dBlock
+    .fi
+  .fi
+.when i < @links
+end
+.label foundCore
+
+mMinItem = null
+nMinItem = 100
+iItem = 0
+.do
+  lookup item mItem iItem
+  iItem += 1
+
+  nContainerItem = dContainer.mItem
+  nCoreItem = dCore.mItem
+  nTotalItem = nContainerItem + nCoreItem
+  .if nTotalItem > 0
+    nItem = nContainerItem min nCoreItem
+    .if nItem < nMinItem
+      mMinItem = mItem
+      nMinItem = nItem
+    .fi
+  .fi
+.when iItem < @itemCount
+
+.do
+  dBlock = %i
+  i += 1
+  .if mMinItem
+    control config dBlock mMinItem
+    control enabled dBlock true
+  .else
+    control enabled dBlock false
+    control config dBlock null
+  .fi
+.when i < @links
