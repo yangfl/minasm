@@ -1,0 +1,118 @@
+jump _start
+
+.entry
+
+.label i2lBlock
+__interrupt_i2lSplit = @line1
+
+i2lSplit_nInstC = nInst0
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst1
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst2
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst3
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst4
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst5
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst6
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst7
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst8
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst9
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst10
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst11
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst12
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst13
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst14
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst15
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst16
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst17
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst18
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst19
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst20
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst21
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst22
+jump i2lSplit
+.entry
+i2lSplit_nInstC = nInst23
+jump i2lSplit
+.entry
+
+__interrupt_i2lBlock += 25
+.reti i2lBlock
+
+
+.label i2lSplit
+__interrupt_i2l = @line1
+i2l_nInst = i2lSplit_nInstC & 0x7ffffff
+jump i2l
+.entry
+i2l_nInst = i2lSplit_nInstC >> 27
+jump i2l
+.entry
+__interrupt_i2lSplit += 2
+.reti i2lSplit
+
+
+.label i2l
+.if i2l_nInst == 0
+  drawflush display1
+.else
+  i2l_x = i2l_nInst & 0xff
+  i2l_nTemp = i2l_nInst >> 8
+  i2l_y = i2l_nTemp & 0xff
+  i2l_nTemp >>= 8
+  .if i2l_nInst > 0x4000000
+    draw color i2l_x i2l_y i2l_nTemp 255
+  .else
+    i2l_w = i2l_nTemp & 0x1f
+    i2l_h = i2l_nTemp >> 5
+    draw rect i2l_x i2l_y i2l_w i2l_h
+  .fi
+.fi
+__interrupt_i2l += 2
+.reti i2l
+
+
+.label _start
+__interrupt_i2lBlock = @line1

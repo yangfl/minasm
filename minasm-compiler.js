@@ -1159,52 +1159,55 @@ function (name, requires, factory, onExist = 'warn') {
      * @returns {boolean} Whether the branch targets were changed.
      */
     normalize () {
-      const jumpDirection = this.isJump ? this.jumpDirection : 0
-
       const oldNext = this.next
-      do {
-        if (!this.next?.getTarget || this.next.noOptimize) {
-          break
-        }
-        if (this.isJump && jumpDirection < 0) {
-          this.next = null
-          break
-        }
-
-        const next = this.next.getTarget(this.isJump)
-        if (!next) {
-          break
-        }
-        if (this.isJump && next === this.branch) {
-          this.args.length = 0
-          this.next = null
-          break
-        }
-        this.next = next
-      } while (false)
-
       const oldBranch = this.branch
-      do {
-        if (!this.branch?.getTarget || this.branch.noOptimize) {
-          break
-        }
-        if (this.isJump && jumpDirection > 0) {
-          this.branch = null
-          break
-        }
 
-        const branch = this.branch.getTarget(this.isJump)
-        if (!branch) {
-          break
-        }
-        if (this.isJump && branch === this.next) {
-          this.args[0] = Instruction.tokenNever
-          this.args.length = 1
-          this.branch = null
-          break
-        }
-        this.branch = branch
-      } while (false)
+      if (!this.noOptimize) {
+        const jumpDirection = this.isJump ? this.jumpDirection : 0
+
+        do {
+          if (!this.next?.getTarget || this.next.noOptimize) {
+            break
+          }
+          if (this.isJump && jumpDirection < 0) {
+            this.next = null
+            break
+          }
+
+          const next = this.next.getTarget(this.isJump)
+          if (!next) {
+            break
+          }
+          if (this.isJump && next === this.branch) {
+            this.args.length = 0
+            this.next = null
+            break
+          }
+          this.next = next
+        } while (false)
+
+        do {
+          if (!this.branch?.getTarget || this.branch.noOptimize) {
+            break
+          }
+          if (this.isJump && jumpDirection > 0) {
+            this.branch = null
+            break
+          }
+
+          const branch = this.branch.getTarget(this.isJump)
+          if (!branch) {
+            break
+          }
+          if (this.isJump && branch === this.next) {
+            this.args[0] = Instruction.tokenNever
+            this.args.length = 1
+            this.branch = null
+            break
+          }
+          this.branch = branch
+        } while (false)
+      }
 
       const normalized = oldNext !== this.next || oldBranch !== this.branch
 
@@ -1701,6 +1704,9 @@ function (name, requires, factory, onExist = 'warn') {
           case 'rel':
             program.resetRelinsts(i - 1, token2?.toNumber() || 0)
             break
+          case 'entry':
+            program.tail.noOptimize = true
+            break
           // stack push pop
           case 'stack':
             if (token2?.type === Token.IDENTIFIER) {
@@ -2158,6 +2164,15 @@ function (name, requires, factory, onExist = 'warn') {
       // fix jumps
       for (let i = 0; i < insts.length; i++) {
         const inst = insts[i]
+
+        for (let j = 0; j < inst.args.length; j++) {
+          if (inst.args[j].type === Token.IDENTIFIER &&
+              inst.args[j].str.startsWith('@line')) {
+            inst.args[j] = new Token(
+              (i + Number(inst.args[j].str.slice(5))).toString(), Token.NUMERIC)
+          }
+        }
+
         if (inst.isJump) {
           if (inst.args.length === 0) {
             if (inst.branch === insts[0]) {

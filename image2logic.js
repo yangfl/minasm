@@ -828,6 +828,7 @@ function matrix2rectsOverlapping (
 
 /********** codegen **********/
 
+
 /**
  * @param {TaggedRectangle} rect
  * @param {number} displayHeight
@@ -838,215 +839,537 @@ function rect2cmd (rect, displayHeight) {
 }
 
 
-const flushThreshold = 256
-
-
 /**
- * @param {TaggedRectangle[]} rects
- * @param {number} threshold
- * @returns {number}
+ * @param {Color} color
+ * @returns {string}
  */
-function rects2cmdCount (rects, threshold = flushThreshold) {
-  let count = 0
-  let tagPrev = -1
-  for (let i = 0; i < rects.length; i++) {
-    const {tag} = rects[i]
-    if (tag !== tagPrev) {
-      tagPrev = tag
-      count++
-    }
-    count++
-  }
-  return count + Math.ceil(count / threshold)
+function color2cmd (color) {
+  return 'draw color ' + color.join(' ') + ' 255'
 }
 
 
 /**
- * @param {TaggedRectangle[]} rects
- * @param {string[]} colorsCmd
- * @param {number} displayHeight
- * @param {string} displayName
- * @param {number} cmdCount
- * @returns {string[]}
- * @throws {Error}
+ * @extends Array<TaggedRectangle>
  */
-function rects2cmds (
-    rects, colorsCmd, displayHeight, displayName, cmdCount = -1) {
-  const drawflush = 'drawflush ' + displayName
+class Bucket extends Array {
+  /**
+   * flush threshold
+   * @type {number}
+   */
+  static flushThreshold = 256
+  /**
+   * threshold of total command number
+   * @type {number}
+   */
+  static sizeThreshold = 1000
+  /**
+   * threshold of total draw instruction number
+   * @type {number}
+   */
+  static lengthThreshold = 1000
 
-  let count = 0
-  /** @type {string[]} */
-  const cmds = []
-  let tagPrev = -1
-  for (let i = 0; i < rects.length; i++) {
-    const tag = rects[i].tag
-    if (tag !== tagPrev) {
-      tagPrev = tag
-      cmds.push(colorsCmd[tag])
-      count++
-      if (count % flushThreshold === 0) {
-        cmds.push(drawflush)
+  /**
+   * last tag
+   * @type {number}
+   */
+  lastTag = -1
+
+  get size () {
+    return this.length
+  }
+
+  get remaining () {
+    return this.constructor.sizeThreshold - this.size
+  }
+
+  /**
+   * @param {number} oldLength
+   * @param {number} newLength
+   * @returns {number}
+   */
+  static _count (oldLength, newLength) {
+    if (newLength - oldLength > this.flushThreshold) {
+      return -1
+    }
+    if (newLength > this.lengthThreshold) {
+      return -1
+    }
+    return newLength
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {number} curTag
+   * @param {number} curLength
+   * @returns {number}
+   */
+  static count (rects, curTag = -1, curLength = 0) {
+    let length = 1
+    let lastTag = curTag
+    for (const rect of rects) {
+      const tag = rect.tag
+      if (lastTag !== tag) {
+        lastTag = tag
+        length += 2
+      } else {
+        length++
       }
     }
-    cmds.push(rect2cmd(rects[i], displayHeight))
-    count++
-    if (count % flushThreshold === 0) {
-      cmds.push(drawflush)
-    }
-  }
-  if (count % flushThreshold !== 0) {
-    cmds.push(drawflush)
+    return this._count(curLength, length + curLength)
   }
 
-  if (cmdCount >= 0 && cmds.length !== cmdCount) {
-    debugger
-    throw new Error('Internal error')
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @returns {number}
+   */
+  count (rects) {
+    return this.constructor.count(rects, this.lastTag, this.length)
   }
-  return cmds
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   */
+  append (rects) {
+    for (const rect of rects) {
+      const tag = rect.tag
+      if (this.lastTag !== tag) {
+        this.lastTag = tag
+        this.push(new TaggedRectangle(-1, -1, -1, -1, tag))
+      }
+      this.push(rect)
+    }
+    this.push(new TaggedRectangle(-1, -1, -1, -1, -1))
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[]}
+   * @throws {Error}
+   */
+  static generate (rects, colors, displayHeight, displayName = 'display1') {
+    const drawflush = 'drawflush ' + displayName
+
+    /** @type {string[]} */
+    const cmds = []
+    for (const rect of rects) {
+      if (rect.l < 0) {
+        if (rect.tag < 0) {
+          cmds.push(drawflush)
+        } else {
+          cmds.push(color2cmd(colors[rect.tag]))
+        }
+      } else {
+        cmds.push(rect2cmd(rect, displayHeight))
+      }
+    }
+
+    return cmds
+  }
+
+  /**
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[]}
+   * @throws {Error}
+   */
+  generate (colors, displayHeight, displayName = 'display1') {
+    const cmds = this.constructor.generate(
+      this, colors, displayHeight, displayName)
+    if (cmds.length > this.size) {
+      debugger
+      throw new Error('Internal error')
+    }
+    return cmds
+  }
 }
 
 
 /**
- * @param {string[][]} buckets
- * @param {TaggedRectangle[]} rects
- * @param {string[]} colorsCmd
- * @param {number} displayHeight
- * @param {string} displayName
- * @param {number} cmdCount
- * @param {boolean} force
+ * @extends Array<Bucket>
  */
-function bucketsAddRects (
-    buckets, rects, colorsCmd, displayHeight, displayName, cmdCount = -1,
-    force = false) {
-  for (let i = 0; i < buckets.length; i++) {
-    const cmdCountNew = buckets[i].length + cmdCount
-    if (cmdCountNew <= 999 && (force || cmdCountNew >= 990)) {
-      buckets[i].push(...rects2cmds(
-        rects, colorsCmd, displayHeight, displayName, cmdCount))
-      return true
+class Codegen extends Array {
+  static BucketType = Bucket
+  static unordered = false
+
+  /**
+   * @param {TaggedRectangle[]} rects
+   * @returns {[number, number]}
+   */
+  count (rects) {
+    let lengthMin = -1
+    let lengthMinIndex = -1
+    for (let i = 0; i < this.length; i++) {
+      const length = this[i].count(rects)
+      if (length >= 0 && (lengthMin < 0 || length < lengthMin)) {
+        lengthMin = length
+        lengthMinIndex = i
+      }
+    }
+    return [
+      lengthMin >= 0 ? lengthMin : this.constructor.BucketType.count(rects),
+      lengthMinIndex
+    ]
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {number} index
+   */
+  append (rects, index = -1) {
+    if (index >= 0) {
+      this[index].append(rects)
+    } else {
+      const bucket = new this.constructor.BucketType
+      this.push(bucket)
+      bucket.append(rects)
     }
   }
 
-  if (force) {
-    buckets.push(rects2cmds(
-      rects, colorsCmd, displayHeight, displayName, cmdCount))
+  /**
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[][]}
+   * @throws {Error}
+   */
+  generate (colors, displayHeight, displayName = 'display1') {
+    return this.map(
+      bucket => bucket.generate(colors, displayHeight, displayName))
   }
-  return force
 }
 
 
 /**
- * @callback Plotter
+ * @extends Array<TaggedRectangle>
+ */
+class CodegenUnordered extends Array {
+  static BucketType = Bucket
+  static unordered = true
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   */
+  append (rects) {
+    for (const rect of rects) {
+      this.push(rect)
+    }
+  }
+
+  sort () {
+    super.sort((a, b) => a.tag - b.tag)
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[]}
+   * @throws {Error}
+   */
+  static generate (rects, colors, displayHeight, displayName = 'display1') {
+    const stream = (function * () {
+      let lastTag = -1
+      for (const rect of rects) {
+        if (lastTag !== rect.tag) {
+          lastTag = rect.tag
+          yield new TaggedRectangle(-1, -1, -1, -1, rect.tag)
+        }
+        yield rect
+      }
+    })()
+
+    /** @type {string[][]} */
+    const cmdsArr = []
+    const that = this
+    while (true) {
+      let total = 0
+      const cmds = this.BucketType.generate((function* () {
+        for (let block = 0; ; ) {
+          const result = stream.next()
+          if (result.done) {
+            break
+          }
+
+          yield result.value
+          total++
+          block++
+
+          if (block >= that.BucketType.flushThreshold ||
+              total >= that.BucketType.lengthThreshold - 1) {
+            yield new TaggedRectangle(-1, -1, -1, -1, -1)
+            if (total >= that.BucketType.lengthThreshold - 1) {
+              break
+            }
+            total++
+            block = 0
+          }
+        }
+      })(), colors, displayHeight, displayName)
+      if (total === 0) {
+        break
+      }
+      cmdsArr.push(cmds)
+    }
+    return cmdsArr
+  }
+
+  /**
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[][]}
+   * @throws {Error}
+   */
+  generate (colors, displayHeight, displayName = 'display1') {
+    return this.constructor.generate(this, colors, displayHeight, displayName)
+  }
+}
+
+
+class BucketNumber extends Bucket {
+  // = FLOOR((1000-27-2*i)/(i+1))*2*i
+  // 24 => 1776
+  static pack = 24
+  static header = `jump 74 always 0 0
+set __interrupt_i2lSplit 2
+set i2lSplit_nInstC nInst0
+jump 52 always 0 0
+set i2lSplit_nInstC nInst1
+jump 52 always 0 0
+set i2lSplit_nInstC nInst2
+jump 52 always 0 0
+set i2lSplit_nInstC nInst3
+jump 52 always 0 0
+set i2lSplit_nInstC nInst4
+jump 52 always 0 0
+set i2lSplit_nInstC nInst5
+jump 52 always 0 0
+set i2lSplit_nInstC nInst6
+jump 52 always 0 0
+set i2lSplit_nInstC nInst7
+jump 52 always 0 0
+set i2lSplit_nInstC nInst8
+jump 52 always 0 0
+set i2lSplit_nInstC nInst9
+jump 52 always 0 0
+set i2lSplit_nInstC nInst10
+jump 52 always 0 0
+set i2lSplit_nInstC nInst11
+jump 52 always 0 0
+set i2lSplit_nInstC nInst12
+jump 52 always 0 0
+set i2lSplit_nInstC nInst13
+jump 52 always 0 0
+set i2lSplit_nInstC nInst14
+jump 52 always 0 0
+set i2lSplit_nInstC nInst15
+jump 52 always 0 0
+set i2lSplit_nInstC nInst16
+jump 52 always 0 0
+set i2lSplit_nInstC nInst17
+jump 52 always 0 0
+set i2lSplit_nInstC nInst18
+jump 52 always 0 0
+set i2lSplit_nInstC nInst19
+jump 52 always 0 0
+set i2lSplit_nInstC nInst20
+jump 52 always 0 0
+set i2lSplit_nInstC nInst21
+jump 52 always 0 0
+set i2lSplit_nInstC nInst22
+jump 52 always 0 0
+set i2lSplit_nInstC nInst23
+jump 52 always 0 0
+op add __interrupt_i2lBlock __interrupt_i2lBlock 25
+set @counter __interrupt_i2lBlock  # .reti i2lBlock
+set __interrupt_i2l 53
+op and i2l_nInst i2lSplit_nInstC 0x7ffffff
+jump 59 always 0 0
+op shr i2l_nInst i2lSplit_nInstC 27
+jump 59 always 0 0
+op add __interrupt_i2lSplit __interrupt_i2lSplit 2
+set @counter __interrupt_i2lSplit  # .reti i2lSplit
+jump 62 notEqual i2l_nInst 0  # .if i2l_nInst == 0
+drawflush display1
+jump 72 always 0 0
+op and i2l_x i2l_nInst 0xff
+op shr i2l_nTemp i2l_nInst 8
+op and i2l_y i2l_nTemp 0xff
+op shr i2l_nTemp i2l_nTemp 8
+jump 69 lessThanEq i2l_nInst 0x4000000  # .if i2l_nInst > 0x4000000
+draw color i2l_x i2l_y i2l_nTemp 255 0 0
+jump 72 always 0 0
+op and i2l_w i2l_nTemp 0x1f
+op shr i2l_h i2l_nTemp 5
+draw rect i2l_x i2l_y i2l_w i2l_h 0 0
+op add __interrupt_i2l __interrupt_i2l 2
+set @counter __interrupt_i2l  # .reti i2l
+set __interrupt_i2lBlock 75`.split('\n')
+  static lengthThreshold =
+    (((BucketNumber.sizeThreshold - BucketNumber.header.length) /
+      (BucketNumber.pack + 1)) >> 0) * 2 * BucketNumber.pack
+
+  get size () {
+    return this.constructor.header.length + Math.ceil(
+      this.length / (2 * this.constructor.pack)) * (this.constructor.pack + 1)
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {number} curTag
+   * @param {number} curLength
+   * @returns {number}
+   */
+  static count (rects, curTag = -1, curLength = 0) {
+    let length = curLength + 1
+    let lastTag = curTag
+    for (const rect of rects) {
+      const tag = rect.tag
+      if (lastTag !== tag) {
+        lastTag = tag
+        length++
+        length |= 1
+      }
+      length +=
+        Math.ceil((rect.r - rect.l) / 31) * Math.ceil((rect.b - rect.t) / 31)
+    }
+    return this._count(curLength, length)
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   */
+  append (rects) {
+    for (const rect of rects) {
+      const tag = rect.tag
+      if (this.lastTag !== tag) {
+        if ((this.length & 1) !== 0) {
+          this.push(new TaggedRectangle(1, 0, 1, 0, 0))
+        }
+        this.lastTag = tag
+        this.push(new TaggedRectangle(-1, -1, -1, -1, tag))
+      }
+      for (let l = rect.l; l < rect.r; l += 31) {
+        for (let t = rect.t; t < rect.b; t += 31) {
+          this.push(new TaggedRectangle(
+            l, t, Math.min(l + 31, rect.r), Math.min(t + 31, rect.b), tag))
+        }
+      }
+    }
+    this.push(new TaggedRectangle(-1, -1, -1, -1, -1))
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[]}
+   * @throws {Error}
+   */
+  static generate (rects, colors, displayHeight, displayName = 'display1') {
+    const cmds = this.header.slice()
+    if (displayName !== 'display1') {
+      for (let i = 0; i < cmds.length; i++) {
+        if (cmds[i].includes('display1')) {
+          cmds[i] = cmds[i].replace('display1', displayName)
+        }
+      }
+    }
+
+    let i = 0
+    let inst1 = -1n
+    let inst2 = -1n
+    for (const {l, t, r, b, tag} of rects) {
+      let inst = -1n
+      if (l < 0) {
+        if (tag < 0) {
+          inst = 0n
+        } else {
+          const color = colors[tag]
+          inst1 = BigInt(
+            0x4000000 | (color[2] << 16) | (color[1] << 8) | color[0])
+          continue
+        }
+      } else {
+        inst = BigInt(
+          ((b - t) << 21) | ((r - l) << 16) | ((displayHeight - b) << 8) | l)
+      }
+
+      if (inst >= 0n) {
+        if (inst1 < 0n) {
+          inst1 = inst
+          continue
+        }
+        inst2 = inst
+      }
+
+      cmds.push(`set nInst${i} 0x${((inst2 << 27n) | inst1).toString(16)}`)
+      i++
+      if (i >= this.pack) {
+        cmds.push('jump 1 always 0 0')
+        i = 0
+      }
+      inst1 = -1n
+      inst2 = -1n
+    }
+
+    if (i !== 0) {
+      while (i < this.pack) {
+        cmds.push(`set nInst${i} 0`)
+        i++
+      }
+      cmds.push('jump 1 always 0 0')
+    }
+
+    return cmds
+  }
+}
+
+
+class CodegenNumber extends Codegen {
+  static BucketType = BucketNumber
+}
+
+
+class CodegenUnorderedNumber extends CodegenUnordered {
+  static BucketType = BucketNumber
+}
+
+
+/**
  * @param {number[]} matrix
  * @param {number} width
  * @param {number} height
  * @param {Orthogonalizer} orthogonalizer
- * @param {string[]} colorsCmd
+ * @param {typeof Codegen} CodegenType
+ * @param {Color[]} colors
  * @param {number} displayHeight
  * @param {string} displayName
  * @param {OrthogonalizerOption} [options]
  * @returns {[string[][], number[]]}
  */
+function matrix2buckets (
+    matrix, width, height, orthogonalizer, CodegenType,
+    colors, displayHeight, displayName, options = {}) {
+  const codegen = new CodegenType
 
-
-/**
- * @type {Plotter}
- */
-function matrix2bucketsUnbarriered (
-    matrix, width, height, orthogonalizer,
-    colorsCmd, displayHeight, displayName, options = {}) {
-  const [rects, real] = orthogonalizer(
-    matrix, width, height, 0, 0, -1, -1, options)
-  const drawflush = 'drawflush ' + displayName
-  /** @type {string[][]} */
-  const buckets = [[]]
-
-  let count = 0
-  let tagPrev = -1
-  for (let i = 0; i < rects.length; i++) {
-    const tag = rects[i].tag
-    if (tag !== tagPrev) {
-      tagPrev = tag
-      if (buckets[buckets.length - 1].length > 999 - 3) {
-        buckets[buckets.length - 1].push(drawflush)
-        buckets.push([colorsCmd[tag]])
-        count = 1
-      } else {
-        buckets[buckets.length - 1].push(colorsCmd[tag])
-        count++
-        if (count % flushThreshold === 0) {
-          buckets[buckets.length - 1].push(drawflush)
-        }
-      }
-    }
-
-    if (buckets[buckets.length - 1].length > 999 - 2) {
-      buckets[buckets.length - 1].push(drawflush)
-      buckets.push([colorsCmd[tag]])
-      count = 1
-    }
-    buckets[buckets.length - 1].push(rect2cmd(rects[i], displayHeight))
-    count++
-    if (count % flushThreshold === 0) {
-      buckets[buckets.length - 1].push(drawflush)
-    }
-  }
-  if (count % flushThreshold !== 0) {
-    buckets[buckets.length - 1].push(drawflush)
+  if (CodegenType.unordered) {
+    const [rects, real] = orthogonalizer(
+      matrix, width, height, 0, 0, -1, -1, options)
+    codegen.append(rects)
+    codegen.sort()
+    return [codegen.generate(colors, displayHeight, displayName), real]
   }
 
-  return [buckets, real]
-}
-
-
-class MatrixCmdBlock {
-  /**
-   * end of y coordinate range (exclusive)
-   * @type {number}
-   */
-  bottom
-  /**
-   * command number
-   * @type {number}
-   */
-  cmdCount
-  /**
-   * tagged rectangles
-   * @type {TaggedRectangle[]}
-   */
-  rects
-  /**
-   * real matrix draw by `rects`
-   * @type {number[]}
-   */
-  real
-
-  /**
-   * @param {number} bottom
-   * @param {number} cmdCount
-   * @param {TaggedRectangle[]} rects
-   * @param {number[]} real
-   */
-  constructor (bottom, cmdCount, rects, real) {
-    this.bottom = bottom
-    this.cmdCount = cmdCount
-    this.rects = rects
-    this.real = real
-  }
-}
-
-
-/**
- * @type {Plotter}
- */
-function matrix2bucketsBarriered (
-    matrix, width, height, orthogonalizer,
-    colorsCmd, displayHeight, displayName, options = {}) {
-  /** @type {string[][]} */
-  const buckets = []
   /** @type {number[]} */
   const real = new Array(matrix.length).fill(-1)
-  /** @type {MatrixCmdBlock[]} */
+  /** @type {[number, TaggedRectangle[], number[]][]} */
   const prevs = []
 
   const options_ = Object.assign({}, options)
@@ -1062,50 +1385,47 @@ function matrix2bucketsBarriered (
       matrix, width, height, 0, top, -1, bottom, options_)
     rects.unshift(new TaggedRectangle(
       0, top, width, bottom, options_.background))
-    const cmdCount = rects2cmdCount(rects)
 
     // if under threshold, save candidate
-    if (cmdCount <= flushThreshold + 1 || bottom - top === 1) {
+    if (rects.length <= CodegenType.BucketType.flushThreshold + 1 ||
+        bottom - top === 1) {
       if (bottom - top > 1) {
         while (prevs.length > 0 &&
-               cmdCount <= prevs[prevs.length - 1].cmdCount) {
+               rects.length <= prevs[prevs.length - 1][1].length) {
           // the current one beats the previous
           prevs.pop()
         }
-      } else if (cmdCount > flushThreshold + 1) {
+      } else if (rects.length > CodegenType.BucketType.flushThreshold + 1) {
         // out of threshold within 1 line
-        console.warn(top, cmdCount)
+        console.warn(top, rects.length)
       }
       // save candidate
-      prevs.push(new MatrixCmdBlock(bottom, cmdCount, rects, rectsReal))
+      prevs.push([bottom, rects, rectsReal])
     }
 
     // if exceed threshold, determine which cmd bucket to use
-    if (cmdCount > flushThreshold + 1 || bottom >= height) {
-      /** @type {?number[]} */
-      let rectsReal = null
-
+    if (rects.length > CodegenType.BucketType.flushThreshold + 1 ||
+        bottom >= height) {
       // find a best match
-      for (let i = prevs.length - 1; i >= 0; i--) {
-        if (bucketsAddRects(buckets, prevs[i].rects, colorsCmd,
-                            displayHeight, displayName, prevs[i].cmdCount)) {
-          bottom = prevs[i].bottom
-          rectsReal = prevs[i].real
-          break
+      let lengthMax = -1
+      let lengthMaxIndex = -1
+      let lengthMaxPrevIndex = -1
+      for (let i = 0; i < prevs.length; i++) {
+        const [length, lengthIndex] = codegen.count(prevs[i][1])
+        if (length >= 0 && length >= lengthMax) {
+          lengthMax = length
+          lengthMaxIndex = lengthIndex
+          lengthMaxPrevIndex = i
         }
+      }
+      if (lengthMax < 0) {
+        debugger
+        throw new Error('Internal error')
       }
 
-      // flush this block anyway
-      if (rectsReal === null) {
-        const last = prevs[prevs.length - 1]
-        if (!bucketsAddRects(buckets, last.rects, colorsCmd,
-                            displayHeight, displayName, last.cmdCount, true)) {
-          buckets.push(rects2cmds(
-            last.rects, colorsCmd, displayHeight, displayName, last.cmdCount))
-        }
-        bottom = last.bottom
-        rectsReal = last.real
-      }
+      const [bottom_, rects, rectsReal] = prevs[lengthMaxPrevIndex]
+      bottom = bottom_
+      codegen.append(rects, lengthMaxIndex)
 
       // render real matrix
       for (let h = top; h < bottom; h++) {
@@ -1123,7 +1443,7 @@ function matrix2bucketsBarriered (
     }
   }
 
-  return [buckets, real]
+  return [codegen.generate(colors, displayHeight, displayName), real]
 }
 
 
@@ -1137,7 +1457,9 @@ function matrix2bucketsBarriered (
 /** @type {HTMLFormElement} */
 const form = document.getElementById('image2logic')
 
-const savedKeys = ['width', 'height', 'blur', 'noise', 'K', 'display-name']
+const savedKeys = [
+  'width', 'height', 'blur', 'noise', 'K', 'display-name', 'spliter', 'codegen',
+]
 for (const key of savedKeys) {
   const value = localStorage.getItem('image2logic::' + key)
   if (value !== null) {
@@ -1251,31 +1573,37 @@ form.addEventListener('change', async function (event) {
                           parseInt(form.elements['blur'].value) || 0)
 
   // convert to commands
-  /** @type {Plotter} */
-  let plotter
+  /** @type {typeof Codegen} */
+  let CodegenType
   /** @type {Orthogonalizer} */
   let orthogonalizer
-  switch (form.elements['backend'].value) {
+  switch (form.elements['spliter'].value) {
     case 'greedy':
-      plotter = matrix2bucketsUnbarriered
       orthogonalizer = matrix2rectsGreedy
+      CodegenType = CodegenUnordered
       break
     case 'greedy-block':
-      plotter = matrix2bucketsBarriered
       orthogonalizer = matrix2rectsGreedy
+      CodegenType = Codegen
       break
     case 'overlapping':
     default:
-      plotter = matrix2bucketsBarriered
       orthogonalizer = matrix2rectsOverlapping
+      CodegenType = Codegen
+      break
+  }
+  switch (form.elements['codegen'].value) {
+    case 'number':
+      CodegenType =
+        CodegenType.unordered ? CodegenUnorderedNumber : CodegenNumber
       break
   }
   /** @type {HTMLCanvasElement} */
   const canvas = form.getElementsByClassName('image2logic--canvas')[0]
-  const [buckets, tagsReal] = plotter(
-    tags, imageData.width, imageData.height, orthogonalizer,
-    colorsRgb.map(color => 'draw color ' + color.join(' ') + ' 255'),
-    canvas.height, form.elements['display-name'].value || 'display1', {
+  const [buckets, tagsReal] = matrix2buckets(
+    tags, imageData.width, imageData.height, orthogonalizer, CodegenType,
+    colorsRgb, canvas.height, form.elements['display-name'].value || 'display1',
+    {
       noise: parseInt(form.elements['noise'].value) || 0
     })
   /** @type {HTMLSpanElement} */
