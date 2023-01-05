@@ -628,10 +628,15 @@ function (name, requires, factory, onExist = 'warn') {
      */
     branch = null
     /**
-     * disable dead code elimination
+     * keep next target
      * @type {boolean}
      */
-    noOptimize = false
+    keepNext = false
+    /**
+     * keep branch target
+     * @type {boolean}
+     */
+    keepBranch = false
 
     /**
      * jump label, for debugging
@@ -680,7 +685,6 @@ function (name, requires, factory, onExist = 'warn') {
         this.args = op.args.slice()
         this.next = op.next
         this.branch = op.branch
-        this.noOptimize = op.noOptimize
         this.label = op.label
         this.index = op.index
         this.subindex = op.subindex
@@ -1067,20 +1071,12 @@ function (name, requires, factory, onExist = 'warn') {
      *  unconditional jump.
      */
     getTarget (jumpCallee = false, initiator = null) {
-      if (this.noOptimize) {
-        // not optimize
-        return this
-      }
       if (initiator === this) {
         // loop detected
         return this
       }
       if (!this.isJump) {
         // not a jump
-        return null
-      }
-      if (!jumpCallee && this.noOptimize) {
-        // prevent jump optimization
         return null
       }
       const jumpDirection = this.jumpDirection
@@ -1090,12 +1086,18 @@ function (name, requires, factory, onExist = 'warn') {
       }
 
       if (jumpDirection > 0) {
+        if (this.keepBranch) {
+          return this
+        }
         const target = this.next?.getTarget(true, initiator || this)
         if (target) {
           this.next = target
         }
         return this.next
       } else {
+        if (this.keepNext) {
+          return this
+        }
         const target = this.branch?.getTarget(true, initiator || this)
         if (target) {
           this.branch = target
@@ -1151,6 +1153,10 @@ function (name, requires, factory, onExist = 'warn') {
       const tmp = this.next
       this.next = this.branch
       this.branch = tmp
+
+      const tmpk = this.keepNext
+      this.keepNext = this.keepBranch
+      this.keepBranch = tmpk
     }
 
     /**
@@ -1162,54 +1168,54 @@ function (name, requires, factory, onExist = 'warn') {
       const oldNext = this.next
       const oldBranch = this.branch
 
-      if (!this.noOptimize) {
-        const jumpDirection = this.isJump ? this.jumpDirection : 0
+      const jumpDirection = this.isJump ? this.jumpDirection : 0
 
-        do {
-          if (!this.next?.getTarget || this.next.noOptimize) {
-            break
-          }
-          if (this.isJump && jumpDirection < 0) {
+      do {
+        if (!this.next?.getTarget) {
+          break
+        }
+        if (this.isJump && jumpDirection < 0 && !this.keepNext) {
+          this.next = null
+          break
+        }
+
+        const next = this.next.getTarget(this.isJump)
+        if (!next) {
+          break
+        }
+        if (this.isJump && next === this.branch) {
+          this.args.length = 0
+          if (!this.keepNext) {
             this.next = null
-            break
           }
+          break
+        }
+        this.next = next
+      } while (false)
 
-          const next = this.next.getTarget(this.isJump)
-          if (!next) {
-            break
-          }
-          if (this.isJump && next === this.branch) {
-            this.args.length = 0
-            this.next = null
-            break
-          }
-          this.next = next
-        } while (false)
+      do {
+        if (!this.branch?.getTarget) {
+          break
+        }
+        if (this.isJump && jumpDirection > 0 && !this.keepBranch) {
+          this.branch = null
+          break
+        }
 
-        do {
-          if (!this.branch?.getTarget || this.branch.noOptimize) {
-            break
-          }
-          if (this.isJump && jumpDirection > 0) {
+        const branch = this.branch.getTarget(this.isJump)
+        if (!branch) {
+          break
+        }
+        if (this.isJump && branch === this.next) {
+          this.args[0] = Instruction.tokenNever
+          this.args.length = 1
+          if (!this.keepBranch) {
             this.branch = null
-            break
           }
-
-          const branch = this.branch.getTarget(this.isJump)
-          if (!branch) {
-            break
-          }
-          if (this.isJump && branch === this.next) {
-            this.args[0] = Instruction.tokenNever
-            this.args.length = 1
-            this.branch = null
-            break
-          }
-          this.branch = branch
-        } while (false)
-      }
-
-      const normalized = oldNext !== this.next || oldBranch !== this.branch
+          break
+        }
+        this.branch = branch
+      } while (false)
 
       if (this.isJump && this.next?.getTarget) {
         if (!this.branch?.getTarget) {
@@ -1245,7 +1251,7 @@ function (name, requires, factory, onExist = 'warn') {
         }
       }
 
-      return normalized
+      return oldNext !== this.next || oldBranch !== this.branch
     }
   }
 
@@ -1483,7 +1489,7 @@ function (name, requires, factory, onExist = 'warn') {
      * @param {boolean} endLike
      */
     push (inst, endLike = false) {
-      inst.noOptimize = this.noOptimize
+      inst.keepNext = this.noOptimize
 
       // end block
       while (this.blockEnds.length !== 0) {
@@ -1573,7 +1579,6 @@ function (name, requires, factory, onExist = 'warn') {
 
     /**
      * @param {number} lineNumber
-     * @returns {boolean}
      */
     finish (lineNumber = -1) {
       if (this.stack.length !== 0) {
@@ -1705,7 +1710,7 @@ function (name, requires, factory, onExist = 'warn') {
             program.resetRelinsts(i - 1, token2?.toNumber() || 0)
             break
           case 'entry':
-            program.tail.noOptimize = true
+            program.tail.keepNext = true
             break
           // stack push pop
           case 'stack':
@@ -2128,8 +2133,8 @@ function (name, requires, factory, onExist = 'warn') {
         }
       }
 
-      const changed = program.finish(lines.length - 1)
-      program.deadcodeEliminate(changed)
+      program.finish(lines.length - 1)
+      program.deadcodeEliminate()
 
       // codegen
       const rawInsts = Array.from(program).sort(Instruction.compare)

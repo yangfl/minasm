@@ -1,0 +1,98 @@
+jump _start
+
+.entry
+
+.label i2lBlock
+__interrupt_i2l = @line1
+
+i2l_nInstC = nInst18
+jump i2l
+.entry
+i2l_nInstC = nInst17
+jump i2l
+.entry
+i2l_nInstC = nInst16
+jump i2l
+.entry
+i2l_nInstC = nInst15
+jump i2l
+.entry
+i2l_nInstC = nInst14
+jump i2l
+.entry
+i2l_nInstC = nInst13
+jump i2l
+.entry
+i2l_nInstC = nInst12
+jump i2l
+.entry
+i2l_nInstC = nInst11
+jump i2l
+.entry
+i2l_nInstC = nInst10
+jump i2l
+.entry
+i2l_nInstC = nInst9
+jump i2l
+.entry
+i2l_nInstC = nInst8
+jump i2l
+.entry
+i2l_nInstC = nInst7
+jump i2l
+.entry
+i2l_nInstC = nInst6
+jump i2l
+.entry
+i2l_nInstC = nInst5
+jump i2l
+.entry
+i2l_nInstC = nInst4
+jump i2l
+.entry
+i2l_nInstC = nInst3
+jump i2l
+.entry
+i2l_nInstC = nInst2
+jump i2l
+.entry
+i2l_nInstC = nInst1
+jump i2l
+.entry
+i2l_nInstC = nInst0
+jump i2l
+.entry
+
+__interrupt_i2lBlock += ${BucketStruct.block + 1}
+.reti i2lBlock
+
+
+.label i2l
+i2l_i = 0
+.do
+  i2l_nInst = i2l_nInstC & 0x7ffffff
+  i2l_nInstC >>= 27
+  i2l_i += 1
+
+  .if i2l_nInst == 0
+    drawflush display1
+  .else
+    i2l_x = i2l_nInst & 0xff
+    i2l_nTemp = i2l_nInst >> 8
+    i2l_y = i2l_nTemp & 0xff
+    i2l_nTemp >>= 8
+    .if i2l_nInst >= 0x4000000
+      draw color i2l_x i2l_y i2l_nTemp 255
+    .else
+      i2l_w = i2l_nTemp & 0x1f
+      i2l_h = i2l_nTemp >> 5
+      draw rect i2l_x i2l_y i2l_w i2l_h
+    .fi
+  .fi
+.when i2l_i < 2
+__interrupt_i2l += 2
+.reti i2l
+
+
+.label _start
+__interrupt_i2lBlock = @line1

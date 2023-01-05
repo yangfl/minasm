@@ -422,6 +422,14 @@ class Rectangle {
     this.r = r
     this.b = b
   }
+
+  /**
+   * @param {Rectangle} other
+   */
+  compare (other) {
+    return this.b - other.b || this.l - other.l ||
+           this.t - other.t || this.r - other.r
+  }
 }
 
 
@@ -456,6 +464,13 @@ class TaggedRectangle extends Rectangle {
   constructor (l, t, r, b, tag) {
     super(l, t, r, b)
     this.tag = tag
+  }
+
+  /**
+   * @param {Rectangle} other
+   */
+  compare (other) {
+    return this.tag - other.tag || super.compare(other)
   }
 
   /**
@@ -665,7 +680,7 @@ function matrix2rectsGreedy (
     }
   }
 
-  rects.sort((a, b) => a.tag - b.tag)
+  rects.sort((a, b) => a.compare(b))
   return [rects, matrix.slice()]
 }
 
@@ -820,14 +835,13 @@ function matrix2rectsOverlapping (
   const result = []
   for (let level = 0; level < bulks.length; level++) {
     result.push(...bulks[level].sort(
-      level & 1 === 0 ? (a, b) => b.tag - a.tag : (a, b) => a.tag - b.tag))
+      level & 1 === 0 ? -a.compare(b) : a.compare(b)))
   }
   return [result, real]
 }
 
 
 /********** codegen **********/
-
 
 /**
  * @param {TaggedRectangle} rect
@@ -849,9 +863,40 @@ function color2cmd (color) {
 
 
 /**
- * @extends Array<TaggedRectangle>
+ * @template T
+ * @extends Array<T>
  */
-class Bucket extends Array {
+class ArrayDisplay extends Array {
+  /**
+   * color-tag mapping
+   * @type {Color[]}
+   * @readonly
+   */
+  colors
+  /**
+   * display height
+   * @type {number}
+   * @readonly
+   */
+  displayHeight = 176
+
+  /**
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   */
+  constructor (colors, displayHeight = 176) {
+    super()
+    this.colors = colors
+    this.displayHeight = displayHeight
+  }
+}
+
+
+/**
+ * @template T
+ * @extends ArrayDisplay<T>
+ */
+class BaseBucket extends ArrayDisplay {
   /**
    * flush threshold
    * @type {number}
@@ -888,7 +933,7 @@ class Bucket extends Array {
    * @returns {number}
    */
   static _count (oldLength, newLength) {
-    if (newLength - oldLength > this.flushThreshold) {
+    if (newLength - oldLength - 1 > this.flushThreshold) {
       return -1
     }
     if (newLength > this.lengthThreshold) {
@@ -899,11 +944,14 @@ class Bucket extends Array {
 
   /**
    * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
    * @param {number} curTag
    * @param {number} curLength
    * @returns {number}
    */
-  static count (rects, curTag = -1, curLength = 0) {
+  static count (
+      rects, colors, displayHeight = 176, curTag = -1, curLength = 0) {
     let length = 1
     let lastTag = curTag
     for (const rect of rects) {
@@ -923,7 +971,8 @@ class Bucket extends Array {
    * @returns {number}
    */
   count (rects) {
-    return this.constructor.count(rects, this.lastTag, this.length)
+    return this.constructor.count(
+      rects, this.colors, this.displayHeight, this.lastTag, this.length)
   }
 
   /**
@@ -949,7 +998,8 @@ class Bucket extends Array {
    * @returns {string[]}
    * @throws {Error}
    */
-  static generate (rects, colors, displayHeight, displayName = 'display1') {
+  static generate (
+      rects, colors, displayHeight = 176, displayName = 'display1') {
     const drawflush = 'drawflush ' + displayName
 
     /** @type {string[]} */
@@ -970,15 +1020,13 @@ class Bucket extends Array {
   }
 
   /**
-   * @param {Color[]} colors
-   * @param {number} displayHeight
    * @param {string} displayName
    * @returns {string[]}
    * @throws {Error}
    */
-  generate (colors, displayHeight, displayName = 'display1') {
+  generate (displayName = 'display1') {
     const cmds = this.constructor.generate(
-      this, colors, displayHeight, displayName)
+      this, this.colors, this.displayHeight, displayName)
     if (cmds.length > this.size) {
       debugger
       throw new Error('Internal error')
@@ -989,9 +1037,16 @@ class Bucket extends Array {
 
 
 /**
- * @extends Array<Bucket>
+ * @extends BaseBucket<TaggedRectangle>
  */
-class Codegen extends Array {
+class Bucket extends BaseBucket {
+}
+
+
+/**
+ * @extends ArrayDisplay<Bucket>
+ */
+class Codegen extends ArrayDisplay {
   static BucketType = Bucket
   static unordered = false
 
@@ -1010,7 +1065,8 @@ class Codegen extends Array {
       }
     }
     return [
-      lengthMin >= 0 ? lengthMin : this.constructor.BucketType.count(rects),
+      lengthMin >= 0 ? lengthMin : this.constructor.BucketType.count(
+        rects, this.colors, this.displayHeight),
       lengthMinIndex
     ]
   }
@@ -1023,30 +1079,27 @@ class Codegen extends Array {
     if (index >= 0) {
       this[index].append(rects)
     } else {
-      const bucket = new this.constructor.BucketType
+      const bucket = new this.constructor.BucketType(
+        this.colors, this.displayHeight)
       this.push(bucket)
       bucket.append(rects)
     }
   }
 
   /**
-   * @param {Color[]} colors
-   * @param {number} displayHeight
    * @param {string} displayName
    * @returns {string[][]}
-   * @throws {Error}
    */
-  generate (colors, displayHeight, displayName = 'display1') {
-    return this.map(
-      bucket => bucket.generate(colors, displayHeight, displayName))
+  generate (displayName = 'display1') {
+    return this.map(bucket => bucket.generate(displayName))
   }
 }
 
 
 /**
- * @extends Array<TaggedRectangle>
+ * @extends ArrayDisplay<TaggedRectangle>
  */
-class CodegenUnordered extends Array {
+class CodegenUnordered extends ArrayDisplay {
   static BucketType = Bucket
   static unordered = true
 
@@ -1060,7 +1113,7 @@ class CodegenUnordered extends Array {
   }
 
   sort () {
-    super.sort((a, b) => a.tag - b.tag)
+    super.sort((a, b) => a.compare(b))
   }
 
   /**
@@ -1071,7 +1124,8 @@ class CodegenUnordered extends Array {
    * @returns {string[]}
    * @throws {Error}
    */
-  static generate (rects, colors, displayHeight, displayName = 'display1') {
+  static generate (
+      rects, colors, displayHeight = 176, displayName = 'display1') {
     const stream = (function * () {
       let lastTag = -1
       for (const rect of rects) {
@@ -1119,113 +1173,204 @@ class CodegenUnordered extends Array {
   }
 
   /**
-   * @param {Color[]} colors
-   * @param {number} displayHeight
    * @param {string} displayName
    * @returns {string[][]}
    * @throws {Error}
    */
-  generate (colors, displayHeight, displayName = 'display1') {
-    return this.constructor.generate(this, colors, displayHeight, displayName)
+  generate (displayName = 'display1') {
+    return this.constructor.generate(
+      this, this.colors, this.displayHeight, displayName)
   }
 }
 
 
-class BucketNumber extends Bucket {
-  // = FLOOR((1000-27-2*i)/(i+1))*2*i
-  // 24 => 1776
-  static pack = 24
-  static header = `jump 74 always 0 0
-set __interrupt_i2lSplit 2
-set i2lSplit_nInstC nInst0
-jump 52 always 0 0
-set i2lSplit_nInstC nInst1
-jump 52 always 0 0
-set i2lSplit_nInstC nInst2
-jump 52 always 0 0
-set i2lSplit_nInstC nInst3
-jump 52 always 0 0
-set i2lSplit_nInstC nInst4
-jump 52 always 0 0
-set i2lSplit_nInstC nInst5
-jump 52 always 0 0
-set i2lSplit_nInstC nInst6
-jump 52 always 0 0
-set i2lSplit_nInstC nInst7
-jump 52 always 0 0
-set i2lSplit_nInstC nInst8
-jump 52 always 0 0
-set i2lSplit_nInstC nInst9
-jump 52 always 0 0
-set i2lSplit_nInstC nInst10
-jump 52 always 0 0
-set i2lSplit_nInstC nInst11
-jump 52 always 0 0
-set i2lSplit_nInstC nInst12
-jump 52 always 0 0
-set i2lSplit_nInstC nInst13
-jump 52 always 0 0
-set i2lSplit_nInstC nInst14
-jump 52 always 0 0
-set i2lSplit_nInstC nInst15
-jump 52 always 0 0
-set i2lSplit_nInstC nInst16
-jump 52 always 0 0
-set i2lSplit_nInstC nInst17
-jump 52 always 0 0
-set i2lSplit_nInstC nInst18
-jump 52 always 0 0
-set i2lSplit_nInstC nInst19
-jump 52 always 0 0
-set i2lSplit_nInstC nInst20
-jump 52 always 0 0
-set i2lSplit_nInstC nInst21
-jump 52 always 0 0
-set i2lSplit_nInstC nInst22
-jump 52 always 0 0
-set i2lSplit_nInstC nInst23
-jump 52 always 0 0
-op add __interrupt_i2lBlock __interrupt_i2lBlock 25
+/**
+ * @template T
+ * @extends {BaseBucket<T>}
+ */
+class BaseBucketHeader extends BaseBucket {
+  /**
+   * @param {string} displayName
+   * @returns {string[]}
+   */
+  static generateHeader (displayName = 'display1') {
+    const cmds = this.header.slice()
+    if (displayName !== 'display1') {
+      for (let i = 0; i < cmds.length; i++) {
+        if (cmds[i].includes('display1')) {
+          cmds[i] = cmds[i].replace('display1', displayName)
+        }
+      }
+    }
+    return cmds
+  }
+
+  /**
+   * @param {(string | bigint)[]} block
+   * @param {bigint[]} buffer
+   */
+  static flushPack (block, buffer) {
+    if (buffer.length === 0) {
+      return false
+    }
+    block.push(buffer.reduce(
+      (acc, val, i) => acc | (val << (this.offset * BigInt(i)))))
+    block.opCount++
+    buffer.length = 0
+    return true
+  }
+
+  /**
+   * @param {(string | bigint)[]} block
+   * @param {bigint[]} buffer
+   */
+  static tryFlushPack (block, buffer) {
+    return buffer.length >= this.pack && this.flushPack(block, buffer)
+  }
+
+  /**
+   * @param {string[]} cmds
+   * @param {(string | bigint)[]} buffer
+   */
+  static flushBlock (cmds, buffer) {
+    if (buffer.length === 0) {
+      return false
+    }
+
+    let iOp = buffer.opCount - 1
+    for (let i = 0; i < buffer.length; i++) {
+      const val = buffer[i]
+      if (typeof val === 'string') {
+        cmds.push(val)
+      } else {
+        cmds.push(
+          `set nInst${iOp} 0x${(val <= 0x1FFFFFFFFFFFFFn ? val :
+            (val & 0x1FFFFFFFFFFFFFn) - 0x20000000000000n).toString(16)}`)
+        iOp--
+      }
+    }
+
+    const i2lTarget = 2 + 2 * (this.block - buffer.opCount)
+    if (buffer.opCount !== this.block) {
+      cmds.push(`set __interrupt_i2l ${i2lTarget}`)
+    }
+    if (buffer.length + (buffer.opCount !== this.block) !== this.block) {
+      cmds.push(`set __interrupt_i2lBlock ${cmds.length + 1 - this.block}`)
+    }
+    if (buffer.opCount !== this.block) {
+      cmds.push(`jump ${i2lTarget} always 0 0`)
+    } else {
+      cmds.push('jump 1 always 0 0')
+    }
+    buffer.length = 0
+    buffer.opCount = 0
+    return true
+  }
+
+  /**
+   * @param {string[]} cmds
+   * @param {(string | bigint)[]} buffer
+   */
+  static tryFlushBlock (cmds, buffer) {
+    return (buffer.opCount >= this.block ||
+        buffer.length + (buffer.opCount !== this.block) +
+        (buffer.length + (buffer.opCount !== this.block) !== this.block) >=
+        this.sizeThreshold - cmds.length - 1) &&
+      this.flushBlock(cmds, buffer)
+  }
+}
+
+
+/**
+ * @extends {BaseBucketHeader<TaggedRectangle>}
+ */
+class BucketStruct extends BaseBucketHeader {
+  static offset = 27n
+  static pack = 2
+  // = (1000-25-2*A1-CEILING((1000-25-2*A1)/(A1+1)))*2
+  // 19 => 1780
+  static block = 19
+  static header = `jump 62 always 0 0
+set __interrupt_i2l 2
+set i2l_nInstC nInst18
+jump 42 always 0 0
+set i2l_nInstC nInst17
+jump 42 always 0 0
+set i2l_nInstC nInst16
+jump 42 always 0 0
+set i2l_nInstC nInst15
+jump 42 always 0 0
+set i2l_nInstC nInst14
+jump 42 always 0 0
+set i2l_nInstC nInst13
+jump 42 always 0 0
+set i2l_nInstC nInst12
+jump 42 always 0 0
+set i2l_nInstC nInst11
+jump 42 always 0 0
+set i2l_nInstC nInst10
+jump 42 always 0 0
+set i2l_nInstC nInst9
+jump 42 always 0 0
+set i2l_nInstC nInst8
+jump 42 always 0 0
+set i2l_nInstC nInst7
+jump 42 always 0 0
+set i2l_nInstC nInst6
+jump 42 always 0 0
+set i2l_nInstC nInst5
+jump 42 always 0 0
+set i2l_nInstC nInst4
+jump 42 always 0 0
+set i2l_nInstC nInst3
+jump 42 always 0 0
+set i2l_nInstC nInst2
+jump 42 always 0 0
+set i2l_nInstC nInst1
+jump 42 always 0 0
+set i2l_nInstC nInst0
+jump 42 always 0 0
+op add __interrupt_i2lBlock __interrupt_i2lBlock ${BucketStruct.block + 1}
 set @counter __interrupt_i2lBlock  # .reti i2lBlock
-set __interrupt_i2l 53
-op and i2l_nInst i2lSplit_nInstC 0x7ffffff
-jump 59 always 0 0
-op shr i2l_nInst i2lSplit_nInstC 27
-jump 59 always 0 0
-op add __interrupt_i2lSplit __interrupt_i2lSplit 2
-set @counter __interrupt_i2lSplit  # .reti i2lSplit
-jump 62 notEqual i2l_nInst 0  # .if i2l_nInst == 0
+set i2l_i 0
+op and i2l_nInst i2l_nInstC 0x7ffffff
+op shr i2l_nInstC i2l_nInstC 27
+op add i2l_i i2l_i 1
+jump 49 notEqual i2l_nInst 0  # .if i2l_nInst == 0
 drawflush display1
-jump 72 always 0 0
+jump 59 always 0 0
 op and i2l_x i2l_nInst 0xff
 op shr i2l_nTemp i2l_nInst 8
 op and i2l_y i2l_nTemp 0xff
 op shr i2l_nTemp i2l_nTemp 8
-jump 69 lessThanEq i2l_nInst 0x4000000  # .if i2l_nInst > 0x4000000
+jump 56 lessThan i2l_nInst 0x4000000  # .if i2l_nInst >= 0x4000000
 draw color i2l_x i2l_y i2l_nTemp 255 0 0
-jump 72 always 0 0
+jump 59 always 0 0
 op and i2l_w i2l_nTemp 0x1f
 op shr i2l_h i2l_nTemp 5
 draw rect i2l_x i2l_y i2l_w i2l_h 0 0
+jump 43 lessThan i2l_i 2  # .when i2l_i < 2
 op add __interrupt_i2l __interrupt_i2l 2
 set @counter __interrupt_i2l  # .reti i2l
-set __interrupt_i2lBlock 75`.split('\n')
-  static lengthThreshold =
-    (((BucketNumber.sizeThreshold - BucketNumber.header.length) /
-      (BucketNumber.pack + 1)) >> 0) * 2 * BucketNumber.pack
-
-  get size () {
-    return this.constructor.header.length + Math.ceil(
-      this.length / (2 * this.constructor.pack)) * (this.constructor.pack + 1)
-  }
+set __interrupt_i2lBlock 63`.split('\n')
+  static free = BucketStruct.sizeThreshold - BucketStruct.header.length
+  static batch = (BucketStruct.free / (BucketStruct.block + 1)) >> 0
+  static remainder = BucketStruct.free -
+                     (BucketStruct.block + 1) * BucketStruct.batch
+  static lengthThreshold = BucketStruct.pack * (
+    BucketStruct.block * BucketStruct.batch + Math.max(
+      BucketStruct.remainder - 3, 0))
 
   /**
    * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
    * @param {number} curTag
    * @param {number} curLength
    * @returns {number}
    */
-  static count (rects, curTag = -1, curLength = 0) {
+  static count (
+      rects, colors, displayHeight = 176, curTag = -1, curLength = 0) {
     let length = curLength + 1
     let lastTag = curTag
     for (const rect of rects) {
@@ -1233,7 +1378,6 @@ set __interrupt_i2lBlock 75`.split('\n')
       if (lastTag !== tag) {
         lastTag = tag
         length++
-        length |= 1
       }
       length +=
         Math.ceil((rect.r - rect.l) / 31) * Math.ceil((rect.b - rect.t) / 31)
@@ -1248,9 +1392,6 @@ set __interrupt_i2lBlock 75`.split('\n')
     for (const rect of rects) {
       const tag = rect.tag
       if (this.lastTag !== tag) {
-        if ((this.length & 1) !== 0) {
-          this.push(new TaggedRectangle(1, 0, 1, 0, 0))
-        }
         this.lastTag = tag
         this.push(new TaggedRectangle(-1, -1, -1, -1, tag))
       }
@@ -1272,73 +1413,539 @@ set __interrupt_i2lBlock 75`.split('\n')
    * @returns {string[]}
    * @throws {Error}
    */
-  static generate (rects, colors, displayHeight, displayName = 'display1') {
-    const cmds = this.header.slice()
-    if (displayName !== 'display1') {
-      for (let i = 0; i < cmds.length; i++) {
-        if (cmds[i].includes('display1')) {
-          cmds[i] = cmds[i].replace('display1', displayName)
-        }
-      }
-    }
+  static generate (
+      rects, colors, displayHeight = 176, displayName = 'display1') {
+    const cmds = this.generateHeader(displayName)
 
-    let i = 0
-    let inst1 = -1n
-    let inst2 = -1n
+    /** @type {bigint[]} */
+    const packBuffer = []
+    /** @type {(string | bigint)[]} */
+    const blockBuffer = []
+    blockBuffer.opCount = 0
     for (const {l, t, r, b, tag} of rects) {
-      let inst = -1n
       if (l < 0) {
         if (tag < 0) {
-          inst = 0n
+          packBuffer.push(0n)
         } else {
           const color = colors[tag]
-          inst1 = BigInt(
-            0x4000000 | (color[2] << 16) | (color[1] << 8) | color[0])
-          continue
+          packBuffer.push(BigInt(
+            0x4000000 | (color[2] << 16) | (color[1] << 8) | color[0]))
         }
       } else {
-        inst = BigInt(
-          ((b - t) << 21) | ((r - l) << 16) | ((displayHeight - b) << 8) | l)
+        packBuffer.push(BigInt(
+          ((b - t) << 21) | ((r - l) << 16) | ((displayHeight - b) << 8) | l))
       }
 
-      if (inst >= 0n) {
-        if (inst1 < 0n) {
-          inst1 = inst
-          continue
-        }
-        inst2 = inst
+      if (this.tryFlushPack(blockBuffer, packBuffer)) {
+        this.tryFlushBlock(cmds, blockBuffer)
       }
-
-      cmds.push(`set nInst${i} 0x${((inst2 << 27n) | inst1).toString(16)}`)
-      i++
-      if (i >= this.pack) {
-        cmds.push('jump 1 always 0 0')
-        i = 0
-      }
-      inst1 = -1n
-      inst2 = -1n
     }
 
-    if (i !== 0) {
-      while (i < this.pack) {
-        cmds.push(`set nInst${i} 0`)
-        i++
-      }
-      cmds.push('jump 1 always 0 0')
-    }
-
+    this.flushPack(blockBuffer, packBuffer)
+    this.flushBlock(cmds, blockBuffer)
     return cmds
   }
 }
 
 
-class CodegenNumber extends Codegen {
-  static BucketType = BucketNumber
+class CodegenStruct extends Codegen {
+  static BucketType = BucketStruct
 }
 
 
-class CodegenUnorderedNumber extends CodegenUnordered {
-  static BucketType = BucketNumber
+class CodegenUnorderedStruct extends CodegenUnordered {
+  static BucketType = BucketStruct
+}
+
+
+class MicroOp {
+  static INVALID = -2
+  static FREESTYLE = -1
+  static RECT = 0
+  static OFFSET_XPOS = 1
+  static OFFSET_XNEG = 2
+  static R = 3
+  static G = 4
+  static B = 5
+  static X = 6
+  static Y = 7
+
+  static RECT_FLUSH = 0
+  static RECT_W = 1
+  static RECT_H = 2
+  static RECT_NOP = 15
+
+  /**
+   * @type {number}
+   */
+  op
+  /**
+   * @type {number}
+   */
+  arg1
+  /**
+   * @type {number}
+   */
+  arg2
+  /**
+   * @type {string}
+   */
+  inst
+
+  /**
+   * @param {number} op
+   * @param {string | number} arg1
+   * @param {number} arg2
+   */
+  constructor (op = 0, arg1 = 0, arg2 = 0) {
+    this.op = op
+    if (this.op < 0) {
+      this.inst = arg1
+    } else {
+      this.arg1 = arg1
+      this.arg2 = arg2
+    }
+  }
+
+  get longOp () {
+    return 2 <= this.op && this.op <= 5
+  }
+
+  toNumber () {
+    const inst = (this.op << 8) | this.arg1
+    if (this.op <= 2) {
+      return inst | (this.arg2 << 4)
+    } else {
+      return inst
+    }
+  }
+
+  toBigint () {
+    return BigInt(this.toNumber())
+  }
+}
+
+
+/**
+ * @extends {BaseBucketHeader<MicroOp>}
+ */
+class BucketMicroOp extends BaseBucketHeader {
+  static offset = 11n
+  static pack = 5
+  // = (1000-50-2*A1-CEILING((1000-50-2*A1)/(A1+1)))*5
+  // 19 => 4330
+  static block = 19
+  static header = `jump 87 always 0 0
+set __interrupt_i2l 2
+set i2l_nInstC nInst18
+jump 42 always 0 0
+set i2l_nInstC nInst17
+jump 42 always 0 0
+set i2l_nInstC nInst16
+jump 42 always 0 0
+set i2l_nInstC nInst15
+jump 42 always 0 0
+set i2l_nInstC nInst14
+jump 42 always 0 0
+set i2l_nInstC nInst13
+jump 42 always 0 0
+set i2l_nInstC nInst12
+jump 42 always 0 0
+set i2l_nInstC nInst11
+jump 42 always 0 0
+set i2l_nInstC nInst10
+jump 42 always 0 0
+set i2l_nInstC nInst9
+jump 42 always 0 0
+set i2l_nInstC nInst8
+jump 42 always 0 0
+set i2l_nInstC nInst7
+jump 42 always 0 0
+set i2l_nInstC nInst6
+jump 42 always 0 0
+set i2l_nInstC nInst5
+jump 42 always 0 0
+set i2l_nInstC nInst4
+jump 42 always 0 0
+set i2l_nInstC nInst3
+jump 42 always 0 0
+set i2l_nInstC nInst2
+jump 42 always 0 0
+set i2l_nInstC nInst1
+jump 42 always 0 0
+set i2l_nInstC nInst0
+jump 42 always 0 0
+op add __interrupt_i2lBlock __interrupt_i2lBlock ${BucketMicroOp.block + 1}
+set @counter __interrupt_i2lBlock  # .reti i2lBlock
+set i2l_i 0
+op and i2l_nInst i2l_nInstC 0x7ff
+op shr i2l_nInstC i2l_nInstC 11
+op add i2l_i i2l_i 1
+jump 57 greaterThanEq i2l_nInst 0x10  # .if i2l_nInst < 0x10
+op mul i2l_nInst i2l_nInst 2
+op add @counter @counter i2l_nInst  # .case i2l_nInst
+drawflush display1
+jump 84 always 0 0  # .stop
+set i2l_w i2l_y
+jump 55 always 0 0
+set i2l_h i2l_y
+draw rect i2l_x i2l_yPrev i2l_w i2l_h 0 0
+set i2l_y i2l_yPrev
+jump 84 always 0 0
+op and i2l_nArg i2l_nInst 0xff
+op and i2l_nArg1 i2l_nInst 0xf
+op shr i2l_nArg2 i2l_nArg 4
+op shr i2l_nOp i2l_nInst 8
+op mul i2l_nOp i2l_nOp 2
+op add @counter @counter i2l_nOp  # .case i2l_nOp
+draw rect i2l_x i2l_y i2l_nArg1 i2l_nArg2 0 0
+jump 84 always 0 0  # .stop
+op add i2l_x i2l_x i2l_nArg1
+jump 82 always 0 0
+op sub i2l_x i2l_x i2l_nArg1
+jump 82 always 0 0
+set i2l_r i2l_nArg
+jump 84 always 0 0  # .stop
+set i2l_g i2l_nArg
+jump 84 always 0 0  # .stop
+set i2l_b i2l_nArg
+jump 80 always 0 0
+set i2l_x i2l_nArg
+jump 84 always 0 0  # .stop
+set i2l_yPrev i2l_y
+set i2l_y i2l_nArg
+jump 84 always 0 0  # .stop
+draw color i2l_r i2l_g i2l_b 255 0 0
+jump 84 always 0 0  # .stop
+op add i2l_y i2l_y i2l_nArg2
+op sub i2l_y i2l_y 8
+jump 43 lessThan i2l_i 5  # .when i2l_i < 5
+op add __interrupt_i2l __interrupt_i2l 2
+set @counter __interrupt_i2l  # .reti i2l
+set __interrupt_i2lBlock 88`.split('\n')
+  static free = BucketMicroOp.sizeThreshold - BucketMicroOp.header.length
+  static batch = (BucketMicroOp.free / (BucketMicroOp.block + 1)) >> 0
+  static remainder = BucketMicroOp.free -
+                     (BucketMicroOp.block + 1) * BucketMicroOp.batch
+  static lengthThreshold = BucketMicroOp.pack * (
+    BucketMicroOp.block * BucketMicroOp.batch + Math.max(
+      BucketMicroOp.remainder - 3, 0))
+
+  lastX = -128
+  lastY = -128
+  lastW = 0
+  lastH = 0
+
+  static longOk (length) {
+    return (length + 1) % this.pack !== 0
+  }
+
+  get longOk () {
+    return (this.length + 1) % this.constructor.pack !== 0
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {number} curX
+   * @param {number} curY
+   */
+  static shortMove (x, y, curX = -128, curY = -128) {
+    const dX = x - curX
+    const dY = y - curY
+    return -15 <= dX && dX <= 15 && -8 <= dY && dY <= 7
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @returns {boolean}
+   */
+  shortMove (x, y) {
+    return this.constructor.shortMove(x, y, this.lastX, this.lastY)
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {number} curX
+   * @param {number} curY
+   * @param {number} curLength
+   */
+  static moveTo (x, y, curX = -128, curY = -128, curLength = 0) {
+    const dX = x - curX
+    const dY = y - curY
+    if (dX === 0) {
+      return dY === 0 ? [] : [new MicroOp(MicroOp.Y, y)]
+    } else if (dY === 0) {
+      return [new MicroOp(MicroOp.X, x)]
+    } else if (-15 <= dX && dX <= 15 && -8 <= dY && dY <= 7 && (
+        dX >= 0 || this.longOk(curLength))) {
+      return [new MicroOp(
+        dX >= 0 ? MicroOp.OFFSET_XPOS : MicroOp.OFFSET_XNEG,
+        dX >= 0 ? dX : -dX, dY + 8)]
+    } else {
+      return [new MicroOp(MicroOp.X, x), new MicroOp(MicroOp.Y, y)]
+    }
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  moveTo (x, y) {
+    this.push(...this.constructor.moveTo(
+      x, y, this.lastX, this.lastY, this.length))
+    this.lastX = x
+    this.lastY = y
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {number} curTag
+   * @param {number} curLength
+   * @param {number} curX
+   * @param {number} curY
+   * @param {number} curW
+   * @param {number} curH
+   * @returns {number}
+   */
+  static count (
+      rects, colors, displayHeight = 176, curTag = -1, curLength = 0,
+      curX = -128, curY = -128, curW = 0, curH = 0) {
+    let draw = 0
+    let length = curLength
+    let lastTag = curTag
+    let lastX = curX
+    let lastY = curY
+    let lastW = curW
+    let lastH = curH
+
+    for (const rect of rects) {
+      let shortInsts = 0
+      let longInsts = 0
+
+      const tag = rect.tag
+      if (lastTag !== tag) {
+        const [oldR, oldG, oldB] = colors[lastTag] || [-1, -1, -1]
+        const [R, G, B] = colors[tag]
+        lastTag = tag
+
+        if (R !== oldR) {
+          longInsts++
+        }
+        if (G !== oldG) {
+          longInsts++
+        }
+        longInsts++
+        draw++
+      }
+
+      const x = rect.l
+      const y = displayHeight - rect.b
+      for (const inst of this.moveTo(x, y, lastX, lastY)) {
+        if (inst.longOp) {
+          longInsts++
+        } else {
+          shortInsts++
+        }
+      }
+      lastX = x
+      lastY = y
+
+      const w = rect.r - rect.l
+      const h = rect.b - rect.t
+      if ((w > 15 || h > 15) && lastW !== w) {
+        shortInsts += 2
+        lastW = w
+      }
+
+      while (true) {
+        if (longInsts > 0 && this.longOk(length)) {
+          longInsts--
+          length++
+        } else if (shortInsts > 0) {
+          shortInsts--
+          length++
+        } else if (longInsts > 0) {
+          length++
+        } else {
+          break
+        }
+      }
+
+      if (w <= 15 && h <= 15) {
+        length++
+      } else {
+        length += 2
+        lastH = h
+      }
+      draw++
+    }
+    length++
+
+    if (draw > this.flushThreshold) {
+      return -1
+    }
+    if (length > this.lengthThreshold) {
+      return -1
+    }
+    return length
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   * @returns {number}
+   */
+  count (rects) {
+    return this.constructor.count(
+      rects, this.colors, this.displayHeight, this.lastTag, this.length,
+      this.lastX, this.lastY, this.lastW, this.lastH)
+  }
+
+  /**
+   * @param {MicroOp} inst
+   */
+  pushLong (inst) {
+    if (!this.longOk) {
+      this.push(new MicroOp(MicroOp.RECT, MicroOp.RECT_NOP))
+    }
+    this.push(inst)
+  }
+
+  /**
+   * @param {MicroOp} inst
+   */
+  pushFreestyle (inst) {
+    while (this.length % this.constructor.pack !== 0) {
+      this.push(new MicroOp(MicroOp.RECT, MicroOp.RECT_NOP))
+    }
+    this.push(inst)
+    for (let i = 1; i < 3 * this.constructor.pack; i++) {
+      this.push(new MicroOp(MicroOp.INVALID))
+    }
+  }
+
+  /**
+   * @param {Iterable<TaggedRectangle>} rects
+   */
+  append (rects) {
+    /** @type {MicroOp[]} */
+    const shortInsts = []
+    /** @type {MicroOp[]} */
+    const longInsts = []
+    for (const rect of rects) {
+      const tag = rect.tag
+      if (this.lastTag !== tag) {
+        const [oldR, oldG, oldB] = this.colors[this.lastTag] || [-1, -1, -1]
+        const [R, G, B] = this.colors[tag]
+        this.lastTag = tag
+
+        if (R !== oldR) {
+          longInsts.push(new MicroOp(MicroOp.R, R))
+        }
+        if (G !== oldG) {
+          longInsts.push(new MicroOp(MicroOp.G, G))
+        }
+        longInsts.push(new MicroOp(MicroOp.B, B))
+      }
+
+      const x = rect.l
+      const y = this.displayHeight - rect.b
+      for (const inst of this.constructor.moveTo(
+          x, y, this.lastX, this.lastY)) {
+        if (inst.longOp) {
+          longInsts.push(inst)
+        } else {
+          shortInsts.push(inst)
+        }
+      }
+      this.lastX = x
+      this.lastY = y
+
+      const w = rect.r - rect.l
+      const h = rect.b - rect.t
+      if ((w > 15 || h > 15) && this.lastW !== w) {
+        shortInsts.push(new MicroOp(MicroOp.Y, w))
+        shortInsts.push(new MicroOp(MicroOp.RECT, MicroOp.RECT_W))
+        this.lastW = w
+      }
+
+      while (true) {
+        if (longInsts.length > 0 && this.longOk) {
+          this.push(longInsts.shift())
+        } else if (shortInsts.length > 0) {
+          this.push(shortInsts.shift())
+        } else if (longInsts.length > 0) {
+          this.push(new MicroOp(MicroOp.RECT, MicroOp.RECT_NOP))
+        } else {
+          break
+        }
+      }
+
+      if (w <= 15 && h <= 15) {
+        this.push(new MicroOp(MicroOp.RECT, w, h))
+      } else {
+        this.push(new MicroOp(MicroOp.Y, h))
+        this.push(new MicroOp(MicroOp.RECT, MicroOp.RECT_H))
+        this.lastH = h
+      }
+    }
+    this.push(new MicroOp())
+  }
+
+  /**
+   * @param {Iterable<MicroOp>} insts
+   * @param {Color[]} colors
+   * @param {number} displayHeight
+   * @param {string} displayName
+   * @returns {string[]}
+   * @throws {Error}
+   */
+  static generate (
+      insts, colors, displayHeight = 176, displayName = 'display1') {
+    const cmds = this.generateHeader(displayName)
+
+    /** @type {bigint[]} */
+    const packBuffer = []
+    /** @type {(string | bigint)[]} */
+    const blockBuffer = []
+    blockBuffer.opCount = 0
+    for (const inst of insts) {
+      switch (inst.op) {
+        case MicroOp.INVALID:
+          break
+        case MicroOp.FREESTYLE:
+          if (this.flushPack(blockBuffer, packBuffer)) {
+            this.tryFlushBlock(cmds, blockBuffer)
+          }
+          blockBuffer.push(inst.inst)
+          this.tryFlushBlock(cmds, blockBuffer)
+          break
+        default:
+          packBuffer.push(inst.toBigint())
+          if (this.tryFlushPack(blockBuffer, packBuffer)) {
+            this.tryFlushBlock(cmds, blockBuffer)
+          }
+      }
+    }
+
+    this.flushPack(blockBuffer, packBuffer)
+    this.flushBlock(cmds, blockBuffer)
+    return cmds
+  }
+}
+
+
+class CodegenMicroOp extends Codegen {
+  static BucketType = BucketMicroOp
+}
+
+
+class CodegenUnorderedMicroOp extends CodegenUnordered {
+  static BucketType = BucketMicroOp
 }
 
 
@@ -1356,15 +1963,15 @@ class CodegenUnorderedNumber extends CodegenUnordered {
  */
 function matrix2buckets (
     matrix, width, height, orthogonalizer, CodegenType,
-    colors, displayHeight, displayName, options = {}) {
-  const codegen = new CodegenType
+    colors, displayHeight = 176, displayName = 'display1', options = {}) {
+  const codegen = new CodegenType(colors, displayHeight)
 
   if (CodegenType.unordered) {
     const [rects, real] = orthogonalizer(
       matrix, width, height, 0, 0, -1, -1, options)
     codegen.append(rects)
     codegen.sort()
-    return [codegen.generate(colors, displayHeight, displayName), real]
+    return [codegen.generate(displayName), real]
   }
 
   /** @type {number[]} */
@@ -1443,7 +2050,7 @@ function matrix2buckets (
     }
   }
 
-  return [codegen.generate(colors, displayHeight, displayName), real]
+  return [codegen.generate(displayName), real]
 }
 
 
@@ -1593,9 +2200,13 @@ form.addEventListener('change', async function (event) {
       break
   }
   switch (form.elements['codegen'].value) {
-    case 'number':
+    case 'microop':
       CodegenType =
-        CodegenType.unordered ? CodegenUnorderedNumber : CodegenNumber
+        CodegenType.unordered ? CodegenUnordered : CodegenMicroOp
+      break
+    case 'struct':
+      CodegenType =
+        CodegenType.unordered ? CodegenUnordered : CodegenStruct
       break
   }
   /** @type {HTMLCanvasElement} */
@@ -1604,7 +2215,7 @@ form.addEventListener('change', async function (event) {
     tags, imageData.width, imageData.height, orthogonalizer, CodegenType,
     colorsRgb, canvas.height, form.elements['display-name'].value || 'display1',
     {
-      noise: parseInt(form.elements['noise'].value) || 0
+      noise: parseInt(form.elements['noise'].value) || 0,
     })
   /** @type {HTMLSpanElement} */
   const spanCommandsNumber =
