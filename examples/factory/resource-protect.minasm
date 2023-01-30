@@ -1,0 +1,150 @@
+nMinItem = 1000
+nMinPower = 0.3
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  jump disable bSwitch == false
+.fi
+
+.do
+  dCore = %i
+  i += 1
+  i %= @links
+  nCapacity = dCore.@itemCapacity
+.until nCapacity >= 300
+
+.if
+  bDisabled = false
+  nFlagReg = 0
+.else
+.label disable
+  bDisabled = true
+.fi
+
+i = 0
+.while i < @links
+  dBlock = %i
+  i += 1
+
+  mBlockType = dBlock.@type
+  .if mBlockType == @inverted-sorter
+    .if bBlockEnabled
+      control config dBlock @plastanium
+    .else
+      control config dBlock @blast-compound
+    .fi
+    .continue
+  .fi
+
+  .continue dBlock == dCore
+  nCapacity = dBlock.@itemCapacity
+  .continue nCapacity == 0
+
+  .if bDisabled == false
+    nBlockTotalItems = dBlock.@totalItems
+
+    .if nBlockTotalItems > 0
+      nPowerNetCapacity = dBlock.@powerNetCapacity
+      .if nPowerNetCapacity > 0
+        nPowerNetStored = dBlock.@powerNetStored
+        nPower = nPowerNetStored / nPowerNetCapacity
+        .if nPower < nMinPower
+          nFlag = 1 << @itemCount
+          nFlagReg |= nFlag
+          jump disableBlock
+        .fi
+      .fi
+
+      iItem = 0
+      .do
+        lookup item mItem iItem
+        nBlockItem = dBlock.mItem
+        .if nBlockItem > 0
+          nCoreItem = dCore.mItem
+          .if nCoreItem < nMinItem
+            nFlag = 1 << iItem
+            nFlagReg |= nFlag
+            jump disableBlock
+          .fi
+        .fi
+
+        iItem += 1
+      .when iItem < @itemCount
+    .fi
+
+    bBlockEnabled = true
+  .else
+.label disableBlock
+    bBlockEnabled = false
+  .fi
+
+  control enabled dBlock bBlockEnabled
+.done
+
+print "by [orange]awa[]\n核心资源保护\n链接核心及工厂\n"
+.if bDisabled
+  print "\n[red]开关被关闭[]"
+.elif nFlagReg
+  iItem = 0
+  .do
+    nFlag = nFlagReg >> iItem
+    nFlag &= 1
+    .if nFlag
+      print "\n[orange]"
+      iItemCase *= 2
+      .case iItemCase
+        print "铜"
+        .stop
+        print "铅"
+        .stop
+        print "玻璃"
+        .stop
+        print "石墨"
+        .stop
+        print "沙"
+        .stop
+        print "煤"
+        .stop
+        print "钛"
+        .stop
+        print "钍"
+        .stop
+        print "废料"
+        .stop
+        print "硅"
+        .stop
+        print "塑钢"
+        .stop
+        print "布"
+        .stop
+        print "合金"
+        .stop
+        print "孢子"
+        .stop
+        print "爆混"
+        .stop
+        print "硫"
+        .stop
+        print "铍"
+        .stop
+        print "裂变"
+        .stop
+        print "核废料"
+        .stop
+        print "钨"
+        .stop
+        print "氧化物"
+        .stop
+        print "碳化物"
+        .stop
+        print "电力"
+      .esac
+      print "[]不足"
+    .fi
+
+    iItem += 1
+  .when iItem <= @itemCount
+.else
+  print "\n[green]正常运行[]"
+.fi
+printflush message1

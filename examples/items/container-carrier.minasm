@@ -127,7 +127,7 @@ mPayload = @unit.@payloadType
         # .if mBlock == @air
         #   ucontrol build xSource ySource mTarget
         # .fi
-        ucontrol payTake block
+        ucontrol payTake false
       .fi
       mPayload = @unit.@payloadType
       .if mPayload == mTarget

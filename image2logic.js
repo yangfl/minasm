@@ -104,7 +104,7 @@ function matrixBlur (matrix, width, height, blur = 0) {
  * @returns {number}
  */
 function matrixBackground (
-    matrix, width, height, left = 0, matrixTop = 0, right = -1, bottom = -1) {
+    matrix, width, height, left = 0, top = 0, right = -1, bottom = -1) {
   const right_ = right >= 0 ? right : width
   const bottom_ = bottom >= 0 ? bottom : height
   if (left >= right_ || top >= bottom_) {

@@ -16,7 +16,6 @@ Assembly-like language that compiled to [Mindustry Logic Language](https://mindu
 
 | You write.. | It translates... |
 |--|--|
-| # comments | # comments got ignored, no code or `nop` generated |
 | `a = 1` | `set a 1` |
 | `a += 1` | `op add a a 1` |
 | `a = b * c` | `op mul a b c` |

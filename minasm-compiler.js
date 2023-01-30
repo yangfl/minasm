@@ -264,16 +264,22 @@ function (name, requires, factory, onExist = 'warn') {
    * A lexer token.
    */
   class Token {
+    /** @type {0} */
     static WHITESPACE = 0
+    /** @type {1} */
     static IDENTIFIER = 1
+    /** @type {2} */
     static STRING = 2
+    /** @type {3} */
     static NUMERIC = 3
+    /** @type {4} */
     static OPERATOR = 4
+    /** @type {5} */
     static COMMENT = 5
 
     /**
      * token type
-     * @type {number}
+     * @type {0|1|2|3|4|5}
      * @readonly
      */
     type
@@ -296,6 +302,14 @@ function (name, requires, factory, onExist = 'warn') {
     }
 
     /**
+     * Tell whether token type has lexical meaning.
+     * @param {number} type
+     */
+    static meaningful (type) {
+      return type !== this.WHITESPACE && type !== this.COMMENT
+    }
+
+    /**
      * Detect token type.
      * @param {string} str Input string.
      * @param {number} start Starting position.
@@ -304,21 +318,21 @@ function (name, requires, factory, onExist = 'warn') {
     static detectType (str, start = 0) {
       const char = str[start]
       if (char === '#') {
-        return Token.COMMENT
+        return this.COMMENT
       }
       if (char === '"') {
-        return Token.STRING
+        return this.STRING
       }
       if (/^[+-]?\.?\d/.test(str.slice(start, start + 3))) {
-        return Token.NUMERIC
+        return this.NUMERIC
       }
       if ('=><!~?:&|+-*/\^%.[]'.includes(char)) {
-        return Token.OPERATOR
+        return this.OPERATOR
       }
       if (char.trim()) {
-        return Token.IDENTIFIER
+        return this.IDENTIFIER
       }
-      return Token.WHITESPACE
+      return this.WHITESPACE
     }
 
     /**
@@ -329,19 +343,19 @@ function (name, requires, factory, onExist = 'warn') {
      */
     static detect (str, start = 0) {
       const length = str.length
-      const type = Token.detectType(str, start)
+      const type = this.detectType(str, start)
       let regex
       switch (type) {
-        case Token.WHITESPACE:
+        case this.WHITESPACE:
           regex = /\S/
           break
-        case Token.IDENTIFIER:
+        case this.IDENTIFIER:
           regex = /[\s.\[\]%]/
           break
-        case Token.NUMERIC:
+        case this.NUMERIC:
           regex = /[\s\[\]%]/
           break
-        case Token.STRING: {
+        case this.STRING: {
           let end = start + 1
           while (true) {
             const result = matchFrom(str, /["\\\n]/, end)
@@ -361,10 +375,10 @@ function (name, requires, factory, onExist = 'warn') {
             }
           }
         }
-        case Token.OPERATOR:
+        case this.OPERATOR:
           regex = /[^=><!~?:&|+\-*/\\^%.\[\]]/
           break
-        case Token.COMMENT: {
+        case this.COMMENT: {
           const end = str.indexOf('\n', start)
           return [type, end < 0 ? length : end]
         }
@@ -660,10 +674,10 @@ function (name, requires, factory, onExist = 'warn') {
      */
     line
     /**
-     * whether to ignore tokens
-     * @type {boolean}
+     * codegen options
+     * @type {Object<string>}
      */
-    ignoreTokens = false
+    options = {}
 
     /**
      * @param {string | Instruction} op Instruction operator.
@@ -689,7 +703,6 @@ function (name, requires, factory, onExist = 'warn') {
         this.index = op.index
         this.subindex = op.subindex
         this.line = op.line
-        this.ignoreTokens = op.ignoreTokens
       }
     }
 
@@ -1108,9 +1121,16 @@ function (name, requires, factory, onExist = 'warn') {
 
     toString (withToken = false) {
       let str = ''
-      if (0) {
+      if (0) {  // debugger
         str = this.index.toString().padStart(2) + ' [' +
           (this.next ? this.next.index.toString().padStart(2) : '  ') + ']: '
+      }
+
+      if (this.options.labelPrefixes) {
+        const label = this.label || 'L' + this.index.toString()
+        for (const prefix of this.options.labelPrefixes) {
+          str += prefix + label + ':\n'
+        }
       }
 
       if (this.line && this.line.indent) {
@@ -1118,13 +1138,28 @@ function (name, requires, factory, onExist = 'warn') {
       }
       str += this.op
       if (this.isJump) {
-        str += ' ' + (this.branch ? this.branch.index : '<null>')
+        str += ' '
+        if (!this.branch) {
+          str += '<null>'
+        } else if (!('jump' in this.options)) {
+          str += this.branch.index
+        } else if (this.options.jump === true) {
+          const diff = this.branch.index - this.index
+          if (diff >= 0) {
+            str += '+'
+          }
+          str += diff
+        } else {
+          str += this.options.jump
+          str += this.branch.label || 'L' + this.branch.index.toString()
+        }
       }
       if (this.args && this.args.length !== 0) {
         str += ' ' + this.args.join(' ')
       }
 
-      if (!this.ignoreTokens && this.line && (withToken || this.isMacro)) {
+      if (!this.options.ignoreTokens && this.line &&
+          (withToken || this.isMacro)) {
         if (this.isMacro) {
           str += '  # .' + this.line.tokens.slice(1).join(' ')
         } else {
@@ -1374,9 +1409,9 @@ function (name, requires, factory, onExist = 'warn') {
 
     /**
      * label name of next instruction
-     * @type {string?}
+     * @type {Set<string>}
      */
-    label = null
+    label = new Set
     /**
      * disable dead code elimination
      * @type {boolean}
@@ -1393,6 +1428,12 @@ function (name, requires, factory, onExist = 'warn') {
      * @type {Instruction[]}
      */
     blockEnds = []
+
+    /**
+     * codegen options
+     * @type {boolean}
+     */
+    options = {}
 
     constructor () {
       this.tail = this.head
@@ -1489,6 +1530,10 @@ function (name, requires, factory, onExist = 'warn') {
      * @param {boolean} endLike
      */
     push (inst, endLike = false) {
+      for (const option in this.options) {
+        inst.options[option] = this.options[option]
+      }
+
       inst.keepNext = this.noOptimize
 
       // end block
@@ -1503,10 +1548,12 @@ function (name, requires, factory, onExist = 'warn') {
       this.tail = endLike && !this.noOptimize ? null : inst
 
       // mark instruction by label
-      if (this.label) {
-        inst.label = this.label
-        this.labels.set(this.label, inst)
-        this.label = null
+      if (this.label.size > 0) {
+        for (const label of this.label) {
+          inst.label = label
+          this.labels.set(label, inst)
+        }
+        this.label.clear()
       }
 
       // mark relative line number
@@ -1590,10 +1637,12 @@ function (name, requires, factory, onExist = 'warn') {
       this.resetRelinsts(lineNumber)
 
       // mark instruction by label
-      if (this.label) {
-        this.head.label = this.label
-        this.labels.set(this.label, this.head)
-        this.label = null
+      if (this.label.size > 0) {
+        for (const label of this.label) {
+          this.head.label = label
+          this.labels.set(label, this.head)
+        }
+        this.label.clear()
       }
       this.resolveLabels()
 
@@ -1636,39 +1685,65 @@ function (name, requires, factory, onExist = 'warn') {
 
       const program = new Program
 
+      function setLabel (label, i) {
+        const block = program.tryFindBlock('for')
+        if (block) {
+          throw new CompilerError("label in `for' block", i, block.begin.index)
+        }
+        if (program.labels.has(label) && !label.startsWith('_')) {
+          throw new CompilerError(
+            'duplicate label `' + label + "'", i,
+            program.labels.get(label).index - 1)
+        }
+        program.label.add(label)
+      }
+
       const lines = code.split('\n')
       /** @type {Instruction[]} */
       for (let i = 0; i < lines.length; i++) {
         const line = Line.fromString(lines[i], i)
         const tokens = line.tokens.slice()
+        // remove any comments
         while (tokens.length > 0 &&
                tokens[tokens.length - 1].type === Token.COMMENT) {
           tokens.pop()
         }
         if (tokens.length === 0) {
-          program.relinsts.length++
+          // do not increase line number, as of Mindustry's behavior
           continue
         }
 
-        // process normal instructions
-        if (tokens[0].type === Token.IDENTIFIER) {
-          const [op, args, branch] = Instruction.decode(tokens)
-          const inst = new Instruction(op, args, line)
-          if (branch) {
-            inst.branch = branch
-          } else if (op === 'end') {
-            inst.op = 'jump'
-            inst.branch = Instruction.tokenLabelStart
+        const token0 = tokens[0]
+        if (token0.type === Token.NUMERIC) {
+          throw new CompilerError('numeric value at line beginning', i)
+        }
+
+        const command = token0.toString()
+        if (command !== '.') {
+          if (command.endsWith(':')) {
+            // process label
+            if (tokens.length > 1) {
+              throw new CompilerError('extra tokens after label declaration', i)
+            }
+            if (command.length > 1) {
+              setLabel(command.slice(0, -1), i)
+            }
+          } else {
+            // process normal instructions
+            const [op, args, branch] = Instruction.decode(tokens)
+            const inst = new Instruction(op, args, line)
+            if (branch) {
+              inst.branch = branch
+            } else if (op === 'end') {
+              inst.op = 'jump'
+              inst.branch = Instruction.tokenLabelStart
+            }
+            program.push(inst)
           }
-          program.push(inst)
           continue
         }
 
         // process macros
-        if (tokens[0].toString() !== '.') {
-          program.relinsts.length++
-          continue
-        }
         if (tokens[1]?.type !== Token.IDENTIFIER) {
           continue
         }
@@ -1676,28 +1751,28 @@ function (name, requires, factory, onExist = 'warn') {
 
         const macro = tokens[1].toString()
         switch (macro) {
+          case 'syntax':
+            for (let i = 2; i < tokens.length; i++) {
+              const option = tokens[i].toString()
+              const ind = option.indexOf('=')
+              if (ind >= 0) {
+                program.options[option.slice(0, ind)] = option.slice(ind + 1)
+              } else if (option.startsWith('no-')) {
+                delete program.options[option.slice(3)]
+              } else {
+                program.options[option] = true
+              }
+            }
+            break
           case 'fun':
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             // fallthrough
           case 'label': {
-            const block = program.tryFindBlock('for')
-            if (block) {
-              throw new CompilerError(
-                'label not allowed in for block', i, block.begin.index)
+            if (token2) {
+              setLabel(token2.toString(), i)
             }
-
-            if ([Token.IDENTIFIER, Token.STRING].includes(token2?.type)) {
-              program.label = token2.toString()
-              if (program.labels.has(program.label) &&
-                  !program.label.startsWith('_')) {
-                throw new CompilerError(
-                  'duplicate label `' + program.label + "'", i,
-                  program.labels.get(program.label).index - 1)
-              }
-            }
-
             if (macro === 'fun') {
               program.push(new Instruction(
                 'op', [
@@ -1725,7 +1800,7 @@ function (name, requires, factory, onExist = 'warn') {
             break
           case 'push': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             if (token2) {
               program.push(new Instruction(
@@ -1740,7 +1815,7 @@ function (name, requires, factory, onExist = 'warn') {
           }
           case 'pushn': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             program.push(new Instruction(
               'op', [
@@ -1750,7 +1825,7 @@ function (name, requires, factory, onExist = 'warn') {
           }
           case 'pop': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             program.push(new Instruction(
               'op', [
@@ -1766,7 +1841,7 @@ function (name, requires, factory, onExist = 'warn') {
           }
           case 'popn': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             program.push(new Instruction(
               'op', [
@@ -1777,7 +1852,7 @@ function (name, requires, factory, onExist = 'warn') {
           // call ret
           case 'call': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
             if (![Token.IDENTIFIER, Token.STRING].includes(token2?.type)) {
               throw new CompilerError('no function name', i)
@@ -1797,7 +1872,7 @@ function (name, requires, factory, onExist = 'warn') {
           case 'retl':
           case 'ret': {
             if (stackCell === null) {
-              throw new CompilerError('stack cell is not defined', i)
+              throw new CompilerError('stack cell undefined', i)
             }
 
             if (macro === 'ret') {
@@ -2128,8 +2203,7 @@ function (name, requires, factory, onExist = 'warn') {
             break
           }
           default:
-            throw new CompilerError(
-              'unknown macro `' + tokens[1].toString() + "'", i)
+            throw new CompilerError('unknown macro `' + macro + "'", i)
         }
       }
 
@@ -2156,7 +2230,8 @@ function (name, requires, factory, onExist = 'warn') {
         if (inst.next && inst.next !== (
             i + 1 < rawInsts.length ? rawInsts[i + 1] : rawInsts[0])) {
           const newInst = new Instruction('jump', [], inst.line)
-          newInst.ignoreTokens = true
+          newInst.options = structuredClone(inst.options)
+          newInst.options.ignoreTokens = true
 
           newInst.branch = inst.next
           inst.next = newInst
@@ -2179,8 +2254,13 @@ function (name, requires, factory, onExist = 'warn') {
         }
 
         if (inst.isJump) {
+          if (typeof inst.options.jump === 'string') {
+            (inst.branch.options.labelPrefixes ??= new Set).add(
+              inst.options.jump)
+          }
+
           if (inst.args.length === 0) {
-            if (inst.branch === insts[0]) {
+            if (inst.branch === insts[0] && !('jump' in inst.options)) {
               inst.op = 'end'
             } else {
               inst.args.push(Instruction.tokenAlways, Instruction.padding,
