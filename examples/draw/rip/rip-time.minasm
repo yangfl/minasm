@@ -7,7 +7,7 @@ draw stroke nStroke
 nFlowers = 0
 .int drawFlowers
 
-.label _start
+_start:
 
 nControlled = router1.@controlled
 bDead = nControlled == @ctrlPlayer
@@ -148,11 +148,11 @@ drawDigit_i = iDigit * 2
 
 .case drawDigit_i
   # 0 abcdef
-.label drawDigit_abcdef
+drawDigit_abcdef:
   draw lineRect x y dx dy  # abcdef
   .reti drawDigit
   # 1 bc
-.label drawDigit_bc
+drawDigit_bc:
   draw rect drawDigit_x1 y drawDigit_nStrokeNeg dy  # bc
   .reti drawDigit
   # 2 abdeg
@@ -182,26 +182,26 @@ drawDigit_i = iDigit * 2
 .esac
 jump drawDigit_bc
 
-.label drawDigit_adfg
+drawDigit_adfg:
 draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
 draw rect x y dx nStroke  # d
 
-.label drawDigit_fg
+drawDigit_fg:
 draw rect x drawDigit_y1 nStroke drawDigit_dyh  # f
 jump drawDigit_g
 
-.label drawDigit_cdefg
+drawDigit_cdefg:
 draw rect x drawDigit_y1 nStroke drawDigit_dyh  # f
 draw lineRect x y dx drawDigit_dyhsh  # cdeg
 .reti drawDigit
 
-.label drawDigit_abdg
+drawDigit_abdg:
 draw rect drawDigit_x1 drawDigit_y1 drawDigit_nStrokeNeg drawDigit_dyh  # b
 
-.label drawDigit_adg
+drawDigit_adg:
 draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
 draw rect x y dx nStroke  # d
 
-.label drawDigit_g
+drawDigit_g:
 draw rect x drawDigit_y1d dx nStroke  # g
 .reti drawDigit

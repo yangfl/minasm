@@ -8,7 +8,7 @@ nProcessorID = @thisy * @mapw
 nProcessorID += @thisx
 
 .while
-.label redo
+redo:
   # bind unit
   uController = @unit.@controller
   .if uController != @this
@@ -60,12 +60,12 @@ nProcessorID += @thisx
 
   .if xTarget == 0
     # move to processor first
-.label reset
+reset:
     xTarget = @thisx
     yTarget = @thisy
   .fi
 
-.label move
+move:
   # move to a valid block
   .do
     # move to (last) target

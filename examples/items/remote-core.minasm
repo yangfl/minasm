@@ -17,10 +17,11 @@ i = 0
   .fi
 .when i < @links
 end
-.label foundCore
+foundCore:
 
 mMinItem = null
-nMinItem = 100
+nMinItem = dContainer.@itemCapacity
+nMinItem -= 200
 iItem = 0
 .do
   lookup item mItem iItem
@@ -45,7 +46,10 @@ iItem = 0
     control config dBlock mMinItem
     control enabled dBlock true
   .else
-    control enabled dBlock false
+    mBlockType = dBlock.@type
+    .if mBlockType == @unloader
+      control enabled dBlock false
+    .fi
     control config dBlock null
   .fi
 .when i < @links

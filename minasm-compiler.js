@@ -201,6 +201,19 @@ function (name, requires, factory, onExist = 'warn') {
 
 
   /**
+   * @typedef CompilerOptions
+   * @property {Iterable<string>} [labelPrefixes] all mentioned label prefixes
+   * @property {boolean} [noDebug] if true, do not print corresponding source lines as comments
+   * @property {boolean} [endAsJump] if true, translate `end` instruction into `jump 0`
+   * @property {boolean | string} [jump]
+   *  Determinate how to print jump targets.
+   *
+   *  If `jump` is `true`, targets are printed as relative line offsets (marked as `+` or `-`).
+   *
+   *  If `jump` is a string, targets are printed as labels, prefixed with that string. Empty string is allowed.
+   */
+
+  /**
    * @implements {Iterator<[number, Token], undefined>}
    * @implements {Iterable<[number, Token]>}
    */
@@ -241,17 +254,18 @@ function (name, requires, factory, onExist = 'warn') {
 
     next () {
       while (this.i >= 0) {
-        const [type, end] = Token.detect(this.str, this.i)
-        if (this.i >= end) {
-          debugger
-          throw Error('internal error')
+        if (this.i >= this.str.length) {
+          this.i = -1
+          break
         }
+
+        const [type, str] = Token.detect(this.str, this.i)
         const start = this.i
-        this.i = end >= this.str.length ? -1 : end
+        this.i += str.length
         if (this.keepWhitespace || type !== Token.WHITESPACE) {
           return {
             done: false,
-            value: [start, new Token(this.str.substring(start, end), type)]
+            value: [start, new Token(str, type)]
           }
         }
       }
@@ -269,17 +283,25 @@ function (name, requires, factory, onExist = 'warn') {
     /** @type {1} */
     static IDENTIFIER = 1
     /** @type {2} */
-    static STRING = 2
+    static BUILTIN = 2
     /** @type {3} */
     static NUMERIC = 3
     /** @type {4} */
-    static OPERATOR = 4
+    static STRING = 4
     /** @type {5} */
-    static COMMENT = 5
+    static OPERATOR = 5
+    /** @type {6} */
+    static COMMENT = 6
+
+    static NULL = new Token('null', Token.BUILTIN)
+    static FALSE = new Token('false', Token.BUILTIN)
+    static TRUE = new Token('true', Token.BUILTIN)
+    static COUNTER = new Token('@counter', Token.IDENTIFIER)
+    static ZERO = new Token('0', Token.NUMERIC)
 
     /**
      * token type
-     * @type {0|1|2|3|4|5}
+     * @type {0|1|2|3|4|5|6}
      * @readonly
      */
     type
@@ -310,40 +332,33 @@ function (name, requires, factory, onExist = 'warn') {
     }
 
     /**
-     * Detect token type.
-     * @param {string} str Input string.
-     * @param {number} start Starting position.
-     * @returns {number} Token type.
-     */
-    static detectType (str, start = 0) {
-      const char = str[start]
-      if (char === '#') {
-        return this.COMMENT
-      }
-      if (char === '"') {
-        return this.STRING
-      }
-      if (/^[+-]?\.?\d/.test(str.slice(start, start + 3))) {
-        return this.NUMERIC
-      }
-      if ('=><!~?:&|+-*/\^%.[]'.includes(char)) {
-        return this.OPERATOR
-      }
-      if (char.trim()) {
-        return this.IDENTIFIER
-      }
-      return this.WHITESPACE
-    }
-
-    /**
      * Detect token type and length.
      * @param {string} str Input string.
      * @param {number} start Starting position.
-     * @returns {[number, number]} Token type and end position.
+     * @returns {[number, string]} Token type and content.
      */
     static detect (str, start = 0) {
-      const length = str.length
-      const type = this.detectType(str, start)
+      if (start >= str.length) {
+        throw new RangeError(
+          `start position ${start} excceed string length ${str.length}`)
+      }
+
+      const char = str[start]
+      let type
+      if (char === '#') {
+        type = this.COMMENT
+      } else if (char === '"') {
+        type = this.STRING
+      } else if (/^[+-]?\.?\d/.test(str.slice(start, start + 3))) {
+        type = this.NUMERIC
+      } else if ('=><!~?:&|+-*/\^%.[]'.includes(char)) {
+        type = this.OPERATOR
+      } else if (char.trim()) {
+        type = this.IDENTIFIER
+      } else {
+        type = this.WHITESPACE
+      }
+
       let regex
       switch (type) {
         case this.WHITESPACE:
@@ -360,7 +375,7 @@ function (name, requires, factory, onExist = 'warn') {
           while (true) {
             const result = matchFrom(str, /["\\\n]/, end)
             if (!result) {
-              return [type, length]
+              return [type, str.substring(start)]
             }
             end = result.index
             switch (str[end]) {
@@ -371,7 +386,7 @@ function (name, requires, factory, onExist = 'warn') {
                 end++
                 // fallthrough
               default:
-                return [type, end]
+                return [type, str.substring(start, end)]
             }
           }
         }
@@ -380,10 +395,25 @@ function (name, requires, factory, onExist = 'warn') {
           break
         case this.COMMENT: {
           const end = str.indexOf('\n', start)
-          return [type, end < 0 ? length : end]
+          return [type, str.substring(start, end >= 0 ? end : str.length)]
         }
+        default:
+          throw new RangeError(`unknown token type ${type}`)
       }
-      return [type, matchFrom(str, regex, start)?.index || length]
+
+      const token = str.substring(
+        start, matchFrom(str, regex, start)?.index || str.length)
+      switch (type) {
+        case this.IDENTIFIER:
+          switch (token) {
+            case 'null':
+            case 'false':
+            case 'true':
+              type = this.BUILTIN
+              break
+          }
+      }
+      return [type, token]
     }
 
     /**
@@ -402,7 +432,8 @@ function (name, requires, factory, onExist = 'warn') {
      * @type {boolean}
      */
     get isImm () {
-      return this.type === Token.NUMERIC || this.type === Token.STRING
+      return this.type === Token.BUILTIN || this.type === Token.NUMERIC ||
+        this.type === Token.STRING
     }
 
     toString () {
@@ -419,19 +450,28 @@ function (name, requires, factory, onExist = 'warn') {
           return Number(this.toString())
         case Token.STRING:
           return JSON.parse(this.toString())
+        case Token.BUILTIN:
+          switch (this.str) {
+            case 'null':
+              return null
+            case 'false':
+              return false
+            case 'true':
+              return true
+          }
+          // fallthrough
         default:
           return this.toString()
       }
     }
 
     /**
-     * Test if token is of a given type or string.
-     * @param {number | string} want Wanted token type or string.
-     * @returns {boolean} `true` if matched.
+     * Test if two tokens equal.
+     * @param {Token} value Token.
+     * @returns {boolean} `true` if equal.
      */
-    match (want) {
-      return typeof want === 'string' ?
-        want === this.toString() : want === this.type
+    equal (value) {
+      return this.type === value.type && this.str === value.str
     }
   }
 
@@ -610,15 +650,11 @@ function (name, requires, factory, onExist = 'warn') {
       Array.from(Instruction.operators)
         .map(([key, value]) => [key, new Token(value)]))
 
-    static tokenAlways = Instruction.reverseConditionToken.get('never')
-    static tokenNever = Instruction.reverseConditionToken.get('always')
-    static tokenNotEqual = Instruction.reverseConditionToken.get('equal')
+    static ALWAYS = Instruction.reverseConditionToken.get('never')
+    static NEVER = Instruction.reverseConditionToken.get('always')
+    static NOT_EQUAL = Instruction.reverseConditionToken.get('equal')
 
-    static padding = new Token('0', Token.NUMERIC)
-    static tokenCounter = new Token('@counter')
-    static tokenFalse = new Token('false')
-    static tokenLabelStart = new Token('_start')
-
+    static LABEL_START = new Token('_start')
 
     /**
      * instruction operator
@@ -675,7 +711,7 @@ function (name, requires, factory, onExist = 'warn') {
     line
     /**
      * codegen options
-     * @type {Object<string>}
+     * @type {CompilerOptions}
      */
     options = {}
 
@@ -754,7 +790,7 @@ function (name, requires, factory, onExist = 'warn') {
         return result
       }
       if (args.length === 1) {
-        return [Instruction.tokenNotEqual, args[0], Instruction.tokenFalse]
+        return [Instruction.NOT_EQUAL, args[0], Token.FALSE]
       }
       return null
     }
@@ -842,7 +878,7 @@ function (name, requires, factory, onExist = 'warn') {
           // 0 1 2  3
           args = [tokens[2], tokens[0]].concat(tokens.slice(3))
           while (args.length < 4) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           return ['op', args]
         }
@@ -853,7 +889,7 @@ function (name, requires, factory, onExist = 'warn') {
             Instruction.operatorTokens.get(token2Str), tokens[0]
           ].concat(tokens.slice(3))
           while (args.length < 4) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           return ['op', args]
         }
@@ -909,7 +945,7 @@ function (name, requires, factory, onExist = 'warn') {
         case 'spawnwave':
         case 'message':
           while (args.length < 1) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'op':
@@ -917,30 +953,30 @@ function (name, requires, factory, onExist = 'warn') {
         case 'cutscene':
         case 'fetch':
           while (args.length < 3) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'packcolor':
           while (args.length < 4) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'setblock':
         case 'setrule':
           while (args.length < 5) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'control':
         case 'ucontrol':
           while (args.length < 6) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'draw':
         case 'ulocate':
           while (args.length < 7) {
-            args.push(Instruction.padding)
+            args.push(Token.ZERO)
           }
           break
         case 'read':
@@ -1051,7 +1087,7 @@ function (name, requires, factory, onExist = 'warn') {
         this.args.length = 0
       } else if (ret > 0) {
         this.args.length = 1
-        this.args[0] = Instruction.tokenNever
+        this.args[0] = Instruction.NEVER
       }
       return ret
     }
@@ -1079,12 +1115,12 @@ function (name, requires, factory, onExist = 'warn') {
      * Get the branch target of this instruction, if this instruction is an
      * unconditional jump.
      * @param {boolean} jumpCallee Whether callee instruction is a jump.
-     * @param {Instruction} initiator Loop detector.
+     * @param {Set<Instruction>} trace Loop detector.
      * @returns {Instruction?} Target instruction, or null if not an
      *  unconditional jump.
      */
-    getTarget (jumpCallee = false, initiator = null) {
-      if (initiator === this) {
+    getTarget (jumpCallee = false, trace = new Set) {
+      if (trace.has(this)) {
         // loop detected
         return this
       }
@@ -1098,11 +1134,12 @@ function (name, requires, factory, onExist = 'warn') {
         return null
       }
 
+      trace.add(this)
       if (jumpDirection > 0) {
         if (this.keepBranch) {
           return this
         }
-        const target = this.next?.getTarget(true, initiator || this)
+        const target = this.next?.getTarget(true, trace)
         if (target) {
           this.next = target
         }
@@ -1111,7 +1148,7 @@ function (name, requires, factory, onExist = 'warn') {
         if (this.keepNext) {
           return this
         }
-        const target = this.branch?.getTarget(true, initiator || this)
+        const target = this.branch?.getTarget(true, trace)
         if (target) {
           this.branch = target
         }
@@ -1141,24 +1178,24 @@ function (name, requires, factory, onExist = 'warn') {
         str += ' '
         if (!this.branch) {
           str += '<null>'
-        } else if (!('jump' in this.options)) {
+        } else if (typeof this.options.jump === 'string') {
+          str += this.options.jump
+          str += this.branch.label || 'L' + this.branch.index.toString()
+        } else if (!this.options.jump) {
           str += this.branch.index
-        } else if (this.options.jump === true) {
+        } else {
           const diff = this.branch.index - this.index
           if (diff >= 0) {
             str += '+'
           }
           str += diff
-        } else {
-          str += this.options.jump
-          str += this.branch.label || 'L' + this.branch.index.toString()
         }
       }
       if (this.args && this.args.length !== 0) {
         str += ' ' + this.args.join(' ')
       }
 
-      if (!this.options.ignoreTokens && this.line &&
+      if (!this.options.noDebug && this.line &&
           (withToken || this.isMacro)) {
         if (this.isMacro) {
           str += '  # .' + this.line.tokens.slice(1).join(' ')
@@ -1174,11 +1211,11 @@ function (name, requires, factory, onExist = 'warn') {
      */
     reverseJump () {
       if (this.args.length === 0) {
-        this.args.push(Instruction.tokenNever)
+        this.args.push(Instruction.NEVER)
       } else {
         const reversedConditionToken = Instruction.reverseConditionToken.get(
           this.args[0].toString())
-        if (reversedConditionToken === Instruction.tokenAlways) {
+        if (reversedConditionToken === Instruction.ALWAYS) {
           this.args.length = 0
         } else if (reversedConditionToken) {
           this.args[0] = reversedConditionToken
@@ -1242,7 +1279,7 @@ function (name, requires, factory, onExist = 'warn') {
           break
         }
         if (this.isJump && branch === this.next) {
-          this.args[0] = Instruction.tokenNever
+          this.args[0] = Instruction.NEVER
           this.args.length = 1
           if (!this.keepBranch) {
             this.branch = null
@@ -1383,7 +1420,7 @@ function (name, requires, factory, onExist = 'warn') {
      * program head
      * @type {Instruction}
      */
-    head = new Instruction('jump', [Instruction.tokenNever])
+    head = new Instruction('jump', [Instruction.NEVER])
     /**
      * program tail
      * @type {Instruction?}
@@ -1431,13 +1468,15 @@ function (name, requires, factory, onExist = 'warn') {
 
     /**
      * codegen options
-     * @type {boolean}
+     * @type {CompilerOptions}
      */
-    options = {}
+    options = {
+      jump: '',
+    }
 
     constructor () {
       this.tail = this.head
-      this.labels.set(Instruction.tokenLabelStart.toString(), this.head)
+      this.labels.set(Instruction.LABEL_START.toString(), this.head)
     }
 
     [Symbol.iterator] () {
@@ -1736,7 +1775,7 @@ function (name, requires, factory, onExist = 'warn') {
               inst.branch = branch
             } else if (op === 'end') {
               inst.op = 'jump'
-              inst.branch = Instruction.tokenLabelStart
+              inst.branch = Instruction.LABEL_START
             }
             program.push(inst)
           }
@@ -1882,8 +1921,7 @@ function (name, requires, factory, onExist = 'warn') {
                   new Token('1', Token.NUMERIC)], line))
             }
             program.push(new Instruction(
-              'read', [Instruction.tokenCounter, stackCell, stackPointer],
-              line, 1), true)
+              'read', [Token.COUNTER, stackCell, stackPointer], line, 1), true)
             break
           }
           // int reti
@@ -1911,10 +1949,10 @@ function (name, requires, factory, onExist = 'warn') {
             }
             const handler = token2.toString()
 
-            program.push(new Instruction(
-              'set', [
-                Instruction.tokenCounter, new Token(interruptPrefix + handler)],
-              line), true)
+            program.push(
+              new Instruction('set', [
+                Token.COUNTER, new Token(interruptPrefix + handler)], line),
+              true)
             break
           }
           /*******
@@ -1966,7 +2004,7 @@ function (name, requires, factory, onExist = 'warn') {
             const instEnd = new Instruction('jump', [], line)
             program.push(instEnd)
 
-            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            const inst = new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
 
             block.data.branch = inst
@@ -2044,7 +2082,7 @@ function (name, requires, factory, onExist = 'warn') {
            * # .when
            *******/
           case 'do': {
-            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            const inst = new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
 
             program.addBlock('do', inst)
@@ -2091,14 +2129,14 @@ function (name, requires, factory, onExist = 'warn') {
             const end = tokens[4].toNumber()
             const step = tokens[5] ? tokens[5].toNumber() : start < end ? 1 : -1
 
-            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            const inst = new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
 
             program.addBlock('for', inst, [], [varName, start, end, step])
             break
           }
           case 'endfor': {
-            const inst = new Instruction('jump', [Instruction.tokenNever], line)
+            const inst = new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
 
             const block = program.testBlock('for', 'endfor', i)
@@ -2176,9 +2214,9 @@ function (name, requires, factory, onExist = 'warn') {
           case 'case': {
             const inst = token2 ?
               new Instruction(
-                'op', [new Token('add'), Instruction.tokenCounter,
-                       Instruction.tokenCounter, token2], line) :
-              new Instruction('jump', [Instruction.tokenNever], line)
+                'op', [new Token('add'), Token.COUNTER,
+                       Token.COUNTER, token2], line) :
+              new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
             program.addBlock('case', inst)
             program.noOptimize = true
@@ -2231,7 +2269,7 @@ function (name, requires, factory, onExist = 'warn') {
             i + 1 < rawInsts.length ? rawInsts[i + 1] : rawInsts[0])) {
           const newInst = new Instruction('jump', [], inst.line)
           newInst.options = structuredClone(inst.options)
-          newInst.options.ignoreTokens = true
+          newInst.options.noDebug = true
 
           newInst.branch = inst.next
           inst.next = newInst
@@ -2260,11 +2298,13 @@ function (name, requires, factory, onExist = 'warn') {
           }
 
           if (inst.args.length === 0) {
-            if (inst.branch === insts[0] && !('jump' in inst.options)) {
+            if (inst.branch === insts[0] && (
+                !inst.options.endAsJump ||
+                (typeof inst.options.jump !== 'string' && !inst.options.jump)
+            )) {
               inst.op = 'end'
             } else {
-              inst.args.push(Instruction.tokenAlways, Instruction.padding,
-                             Instruction.padding)
+              inst.args.push(Instruction.ALWAYS, Token.ZERO, Token.ZERO)
             }
             continue
           }
@@ -2276,17 +2316,17 @@ function (name, requires, factory, onExist = 'warn') {
                 inst.op = 'end'
                 inst.args.length = 0
               } else {
-                inst.args[1] ||= Instruction.padding
-                inst.args[2] ||= Instruction.padding
+                inst.args[1] ||= Token.ZERO
+                inst.args[2] ||= Token.ZERO
               }
               break
             case 'strictNotEqual':
-              inst.args[0] = Instruction.tokenNotEqual
+              inst.args[0] = Instruction.NOT_EQUAL
               break
             case 'never':
-              inst.args[0] = Instruction.tokenNotEqual
-              inst.args[1] = Instruction.padding
-              inst.args[2] = Instruction.padding
+              inst.args[0] = Instruction.NOT_EQUAL
+              inst.args[1] = Token.ZERO
+              inst.args[2] = Token.ZERO
               break
           }
         } else if (inst.op === 'set') {

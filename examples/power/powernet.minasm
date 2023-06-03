@@ -22,7 +22,7 @@ bDiodeEnabled = diode1.@enabled
   control config sorter1 @plastanium
 .else
   .if never
-.label disable
+disable:
     control enabled diode1 0
     control enabled diode2 0
   .fi

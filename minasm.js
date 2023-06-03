@@ -62,13 +62,14 @@ require(['vs/editor/editor.main'], function () {
               inMacro = false
               continue
             }
-            const str = token.toString()
-            if (str[0] === '@' || str === 'true' || str === 'false' ||
-                str === 'null') {
+            if (token.toString()[0] === '@') {
               scopes = 'keyword'
               break
             }
             scopes = 'identifier'
+            break
+          case Minasm.Token.BUILTIN:
+            scopes = 'keyword'
             break
           case Minasm.Token.STRING:
             scopes = 'string'

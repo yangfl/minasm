@@ -4,6 +4,8 @@ printflush message1
 bSerpulo = true
 bErekir = false
 
+bSand = true
+
 .do
   dCore = %i
   i += 1
@@ -12,57 +14,47 @@ bErekir = false
 .until nCapacity >= 300
 
 .do
-  iItem = iMinItem
-  .int inventory
-  nMinItem = nItem
+  .do
+    # test next
+    .if iItem < 16
+      .break bSerpulo == false
+    .elif iItem < 23
+      .break bErekir == false
+    .fi
 
-  iItem = iCurItem
-  .int inventory
-  iCurItem += 1
-  iCurItem %= @itemCount
+    bItemIsSand = 0x6e130 >> iItem
+    bItemIsSand &= 1
+    .if bItemIsSand
+      .break bSand == false
+    .fi
 
-  .if nItem <= nMinItem
-    iMinItem = iItem
-    i = 0
-    .do
-      dBlock = %i
-      i += 1
-      control config dBlock mItem
-    .when i < @links
-  .fi
+    lookup item mItem iItem
+    nItem = dCore.mItem
+    .if bItemIsSand
+      nItem *= 16
+    .fi
 
+    # test cur
+    jump setCur mItemCur == null
+    nItemCur = dCore.mItemCur
+    .if bItemCurIsSand
+      nItemCur *= 16
+    .fi
+
+    .if nItem <= nItemCur
+setCur:
+      mItemCur = mItem
+      bItemCurIsSand = bItemIsSand
+      i = 0
+      .do
+        dBlock = %i
+        i += 1
+        control config dBlock mItem
+      .when i < @links
+    .fi
+  .until
+
+  iItem += 1
+  iItem %= @itemCount
   bCoreDead = dCore.@dead
 .until bCoreDead
-
-end
-
-
-.label inventory iItem dCore
-nItem = 999999
-.if iItem < 16
-  .if bSerpulo == false
-    jump inventory_end
-  .fi
-.elif iItem < 23
-  .if bErekir == false
-    jump inventory_end
-  .fi
-.fi
-
-lookup item mItem iItem
-nItem = dCore.mItem
-.do
-  .break iItem == 4
-  .break iItem == 5
-  .break iItem == 8
-  .if iItem >= 13
-    .if iItem <= 18
-      .break iItem != 16
-    .fi
-  .fi
-  jump inventory_end
-.until
-nItem *= 16
-
-.label inventory_end
-.reti inventory

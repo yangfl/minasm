@@ -17,7 +17,7 @@ nMinPower = 0.3
   bDisabled = false
   nFlagReg = 0
 .else
-.label disable
+disable:
   bDisabled = true
 .fi
 
@@ -74,7 +74,7 @@ i = 0
 
     bBlockEnabled = true
   .else
-.label disableBlock
+disableBlock:
     bBlockEnabled = false
   .fi
 
@@ -83,7 +83,7 @@ i = 0
 
 print "by [orange]awa[]\n核心资源保护\n链接核心及工厂\n"
 .if bDisabled
-  print "\n[red]开关被关闭[]"
+  print "\n[red]关闭[]"
 .elif nFlagReg
   iItem = 0
   .do
@@ -93,51 +93,51 @@ print "by [orange]awa[]\n核心资源保护\n链接核心及工厂\n"
       print "\n[orange]"
       iItemCase *= 2
       .case iItemCase
-        print "铜"
+        print ""
         .stop
-        print "铅"
+        print ""
         .stop
-        print "玻璃"
+        print ""
         .stop
-        print "石墨"
+        print ""
         .stop
-        print "沙"
+        print ""
         .stop
-        print "煤"
+        print ""
         .stop
-        print "钛"
+        print ""
         .stop
-        print "钍"
+        print ""
         .stop
-        print "废料"
+        print ""
         .stop
-        print "硅"
+        print ""
         .stop
-        print "塑钢"
+        print ""
         .stop
-        print "布"
+        print ""
         .stop
-        print "合金"
+        print ""
         .stop
-        print "孢子"
+        print ""
         .stop
-        print "爆混"
+        print ""
         .stop
-        print "硫"
+        print ""
         .stop
-        print "铍"
+        print ""
         .stop
-        print "裂变"
+        print ""
         .stop
-        print "核废料"
+        print ""
         .stop
-        print "钨"
+        print ""
         .stop
-        print "氧化物"
+        print ""
         .stop
-        print "碳化物"
+        print ""
         .stop
-        print "电力"
+        print ""
       .esac
       print "[]不足"
     .fi

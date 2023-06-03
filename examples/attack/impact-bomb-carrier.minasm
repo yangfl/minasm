@@ -57,7 +57,7 @@ nTargetCapacity = dTarget.@itemCapacity
 
   .int bindOne
   .break @unit === null
-  ucontrol boost 1
+  ucontrol boost true
 
   .int carrier
   .break carrier_bOk
@@ -86,7 +86,7 @@ bindOne_uFirstUnit = null
   .if bindOne_uFirstUnit === null
     bindOne_uFirstUnit = @unit
   .elif bindOne_uFirstUnit == @unit
-.label bindOne_rebind
+bindOne_rebind:
     .do
       ubind mUnit
       .break @unit === null

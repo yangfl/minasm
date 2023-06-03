@@ -83,7 +83,7 @@ i2l_i = 0
       jump i2l_nInst1
       i2l_h = i2l_y
       draw rect i2l_x i2l_yPrev i2l_w i2l_h
-.label i2l_nInst1
+i2l_nInst1:
       i2l_y = i2l_yPrev
     .esac
   .else
@@ -111,10 +111,10 @@ i2l_i = 0
       i2l_yPrev = i2l_y
       i2l_y = i2l_nArg
       .stop
-.label i2l_nOp5
+i2l_nOp5:
       draw color i2l_r i2l_g i2l_b 255
       .stop
-.label i2l_nOp1
+i2l_nOp1:
       i2l_y += i2l_nArg2
       i2l_y -= 8
     .esac
@@ -124,5 +124,5 @@ __interrupt_i2l += 2
 .reti i2l
 
 
-.label _start
+_start:
 __interrupt_i2lBlock = @line1

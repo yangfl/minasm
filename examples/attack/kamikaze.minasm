@@ -1,26 +1,164 @@
-xTarget = @thisx
-yTarget = @thisy
+nItemThreshold = 1000
 
-.while
-  ubind @horizon
-  nUnitItems = @unit.@totalItems
-  .if nUnitItems == 0
-    ulocate building core false 0 xCore yCore bCoreFound dCore
-    ucontrol approach xCore yCore 5
+i += 1
+.if i >= 29
+  printflush message1
+  print "选择：\n"
+
+  mItem = sorter1.@config
+  end mItem === null
+  .int rlookup
+  end iItem >= 14
+  iItem *= 3
+  .case iItem
+    print ""
+    iUnit = 15
+    .stop
+    print ""
+    iUnit = 16
+    .stop
+    print ""
+    iUnit = 17
+    .stop
+    print ""
+    iUnit = 18
+    .stop
+    print ""
+    iUnit = 21
+    .stop
+    print ""
+    iUnit = 22
+    .stop
+    print ""
+    iUnit = 23
+    .stop
+    print ""
+    iUnit = 24
+    .stop
+    print ""
+    iUnit = 10
+    .stop
+    print ""
+    iUnit = 11
+    .stop
+    print ""
+    iUnit = 12
+    .stop
+    print ""
+    iUnit = 13
+    .stop
+    print ""
+    iUnit = 19
+    .stop
+    print ""
+    iUnit = 14
+  .esac
+  print " "
+
+  mItem = sorter2.@config
+  .if mItem
+    .int rlookup
+    iItem *= 2
+    .case iItem
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+      .stop
+      print ""
+    .esac
+  .fi
+  i = 0
+.fi
+
+nControlled = arc1.@controlled
+bControlled = nControlled == @ctrlPlayer
+control enabled arc1 bControlled
+end bControlled == false
+
+lookup unit mUnit iUnit
+ubind mUnit
+end @unit === null
+
+.do
+  .if mItem
     nUnitCapacity = @unit.@itemCapacity
-    ucontrol itemTake dCore @blast-compound nUnitCapacity
-    .break
+    mUnitItem = @unit.@firstItem
+    .if mUnitItem
+      .break mUnitItem != mItem
+    .fi
+    nUnitItems = @unit.@totalItems
+    .break nUnitItems < nUnitCapacity
   .fi
 
-  uradar player ally any distance 0 1 uPlayerTemp
-  .if uPlayerTemp != null
-    uPlayer = uPlayerTemp
-  .fi
-  bShooting = uPlayer.@shooting
-  .if bShooting
-    xTarget = uPlayer.@shootX
-    yTarget = uPlayer.@shootY
-  .fi
+  # attack
+  xTarget = arc1.@shootX
+  yTarget = arc1.@shootY
+  ucontrol target xTarget yTarget true
+  ucontrol approach xTarget yTarget 5
+  end
+.until
 
-  ucontrol approach xTarget yTarget 3
-.done
+# take items
+ulocate building core false null xCore yCore bCoreFound dCore
+nItem = dCore.mItem
+.if nItem >= nItemThreshold
+  .if mUnitItem
+    .if mUnitItem != mItem
+      ucontrol itemDrop dCore nUnitCapacity
+    .fi
+  .fi
+  ucontrol itemTake dCore mItem nUnitCapacity
+  ucontrol approach xCore yCore 5
+.fi
+
+end
+
+
+.label rlookup mItem
+iItem = 0
+.do
+  lookup item rlookup_mItem iItem
+  .break mItem == rlookup_mItem
+  iItem += 1
+.when iItem < @itemCount
+.reti rlookup

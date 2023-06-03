@@ -97,7 +97,7 @@ bindOne_uFirstUnit = null
   .if bindOne_uFirstUnit === null
     bindOne_uFirstUnit = @unit
   .elif bindOne_uFirstUnit == @unit
-.label bindOne_rebind
+bindOne_rebind:
     .do
       ubind mUnit
       .break @unit === null

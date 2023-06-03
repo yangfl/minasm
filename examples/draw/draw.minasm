@@ -111,6 +111,6 @@ globalY = 176 - globalY
 
   iRow += 1
 .when iRow < nEndRow
+end:
 
-.label end
 cell1[0] = 0

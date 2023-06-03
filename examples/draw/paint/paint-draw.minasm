@@ -167,7 +167,7 @@ i = 0
     draw stroke nStroke
     draw line x y xPrev yPrev
     drawflush dDisplay
-.label drawNext
+drawNext:
   .fi
 .done
 

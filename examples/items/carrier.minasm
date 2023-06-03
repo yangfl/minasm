@@ -12,7 +12,7 @@ nThreshold = 5
 nUintFlag = @thisy * @mapw
 nUintFlag += @thisx
 
-.label _start
+_start:
 
 ucontrol unbind
 
@@ -132,7 +132,7 @@ bindOne_uFirstUnit = null
   .if bindOne_uFirstUnit === null
     bindOne_uFirstUnit = @unit
   .elif bindOne_uFirstUnit == @unit
-.label bindOne_rebind
+bindOne_rebind:
     .do
       ubind mUnit
       .break @unit === null

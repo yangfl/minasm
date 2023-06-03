@@ -24,7 +24,7 @@ nUintFlag += @thisx
 
   ubind mUnit
 .done
-.label bindOk
+bindOk:
 
 ucontrol flag nUintFlag
 ucontrol boost true
