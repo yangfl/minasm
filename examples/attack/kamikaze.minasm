@@ -6,105 +6,126 @@ i += 1
   print "选择：\n"
 
   mItem = sorter1.@config
-  end mItem === null
-  .int rlookup
-  end iItem >= 14
-  iItem *= 3
-  .case iItem
+  .if mItem === null
+    end
+  .elif mItem == @copper
     print ""
     iUnit = 15
-    .stop
+  .elif mItem == @lead
     print ""
     iUnit = 16
-    .stop
+  .elif mItem == @metaglass
     print ""
     iUnit = 17
-    .stop
+  .elif mItem == @graphite
     print ""
     iUnit = 18
-    .stop
+  .elif mItem == @sand
     print ""
     iUnit = 21
-    .stop
+  .elif mItem == @coal
     print ""
     iUnit = 22
-    .stop
+  .elif mItem == @titanium
     print ""
     iUnit = 23
-    .stop
+  .elif mItem == @thorium
     print ""
     iUnit = 24
-    .stop
+  .elif mItem == @scrap
     print ""
     iUnit = 10
-    .stop
+  .elif mItem == @silicon
     print ""
     iUnit = 11
-    .stop
+  .elif mItem == @plastanium
     print ""
     iUnit = 12
-    .stop
+  .elif mItem == @phase-fabric
     print ""
     iUnit = 13
-    .stop
+  .elif mItem == @surge-alloy
     print ""
     iUnit = 19
-    .stop
+  .elif mItem == @spore-pod
     print ""
     iUnit = 14
-  .esac
+  .else
+    end
+  .fi
+
   print " "
 
   mItem = sorter2.@config
-  .if mItem
-    .int rlookup
-    iItem *= 2
-    .case iItem
+  .if mItem !== null
+    nItemID = mItem.@id
+    nItemID *= 2
+    .case nItemID
+      # @copper
       print ""
       .stop
+      # @lead
       print ""
       .stop
+      # @metaglass
       print ""
       .stop
+      # @graphite
       print ""
       .stop
+      # @sand
       print ""
       .stop
+      # @coal
       print ""
       .stop
+      # @titanium
       print ""
       .stop
+      # @thorium
       print ""
       .stop
+      # @scrap
       print ""
       .stop
+      # @silicon
       print ""
       .stop
+      # @plastanium
       print ""
       .stop
+      # @phase-fabric
       print ""
       .stop
+      # @surge-alloy
       print ""
       .stop
+      # @spore-pod
       print ""
       .stop
+      # @blast-compound
       print ""
       .stop
+      # @pyratite
       print ""
       .stop
+      # @beryllium
       print ""
       .stop
+      # @fissile-matter
       print ""
       .stop
+      # @dormant-cyst
       print ""
       .stop
+      # @tungsten
       print ""
       .stop
+      # @oxide
       print ""
       .stop
+      # @carbide
       print ""
-      .stop
-      print ""
     .esac
   .fi
   i = 0
@@ -133,8 +154,10 @@ end @unit === null
   # attack
   xTarget = arc1.@shootX
   yTarget = arc1.@shootY
-  ucontrol target xTarget yTarget true
   ucontrol approach xTarget yTarget 5
+  xUnit = @unit.@x
+  yUnit = @unit.@y
+  ucontrol target xUnit yUnit true
   end
 .until
 
@@ -150,15 +173,3 @@ nItem = dCore.mItem
   ucontrol itemTake dCore mItem nUnitCapacity
   ucontrol approach xCore yCore 5
 .fi
-
-end
-
-
-.label rlookup mItem
-iItem = 0
-.do
-  lookup item rlookup_mItem iItem
-  .break mItem == rlookup_mItem
-  iItem += 1
-.when iItem < @itemCount
-.reti rlookup

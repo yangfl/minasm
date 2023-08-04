@@ -1,44 +1,27 @@
-dContainer = null
-dCore = null
-
-i = 0
-.do
-  dBlock = %i
-  i += 1
-
-  nCapacity = dBlock.@itemCapacity
-  .if nCapacity >= 300
-    .if dContainer
-      dCore = dBlock
-      jump foundCore
-    .else
-      dContainer = dBlock
-    .fi
-  .fi
-.when i < @links
-end
-foundCore:
+dContainer = %0
+dCore = %1
 
 mMinItem = null
 nMinItem = dContainer.@itemCapacity
-nMinItem -= 200
+nMinItem /= 2
 iItem = 0
 .do
   lookup item mItem iItem
   iItem += 1
 
-  nContainerItem = dContainer.mItem
   nCoreItem = dCore.mItem
-  nTotalItem = nContainerItem + nCoreItem
-  .if nTotalItem > 0
-    nItem = nContainerItem min nCoreItem
-    .if nItem < nMinItem
-      mMinItem = mItem
-      nMinItem = nItem
+  .if nCoreItem > 0
+    nItem = dContainer.mItem
+    .if nItem <= nCoreItem
+      .if nItem <= nMinItem
+        mMinItem = mItem
+        nMinItem = nItem
+      .fi
     .fi
   .fi
 .when iItem < @itemCount
 
+i = 2
 .do
   dBlock = %i
   i += 1
@@ -47,9 +30,13 @@ iItem = 0
     control enabled dBlock true
   .else
     mBlockType = dBlock.@type
-    .if mBlockType == @unloader
-      control enabled dBlock false
-    .fi
+    .do
+      .break mBlockType == @unloader
+      .break mBlockType == @duct-unloader
+      jump noDisable
+    .until
+    control enabled dBlock false
+noDisable:
     control config dBlock null
   .fi
 .when i < @links

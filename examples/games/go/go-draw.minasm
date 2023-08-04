@@ -55,7 +55,7 @@ h = 0
     nState2 = nState * 2
     .case nState2
       jump nState0 bPoint
-      jump nState0End
+      noop
       draw color 0 0 0 255
       .stop
       draw color 255 255 255 255
@@ -63,10 +63,9 @@ h = 0
       draw color 0 255 0 255
     .esac
 
-    .if
-      draw poly u v 64 10
-    .else
-.label nState0
+    draw poly u v 64 10
+    .if 0
+nState0:
       .do
         .break w == 3
         .break w == 9
@@ -74,7 +73,7 @@ h = 0
         jump nState0End
       .until
       draw poly u v 64 3
-.label nState0End
+nState0End:
     .fi
 
     drawflush dDisplay

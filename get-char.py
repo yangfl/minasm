@@ -55,7 +55,7 @@ while True:
         continue
 
     for c in text:
-        print(f'.int _{handler_name}_{c} {handler_name}')
+        print(f'.int _{handler_name}_{c} {handler_name}  # {hex(ord(c))}')
     # print('.int waitChars')
     print('end\n\n')
 

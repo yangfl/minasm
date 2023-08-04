@@ -7,8 +7,8 @@ nUintFlag = @thisy * @mapw
 nUintFlag += @thisx
 
 .if switch1 !== null
-  bEnabled = switch1.@enabled
-  .if bEnabled == false
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
     print "\n[scarlet]已关闭[]"
     end
   .fi

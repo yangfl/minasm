@@ -21,7 +21,6 @@ iItem = 0
 .do
   lookup item mItem iItem
   iItem += 1
-  iItem %= @itemCount
 
   nItem = dCore.mItem
   nDiff = nCapacity - nItem
@@ -52,6 +51,4 @@ iItem = 0
       .when i < @links
     .until
   .fi
-
-  bCoreDead = dCore.@dead
-.until bCoreDead
+.when iItem < @itemCount

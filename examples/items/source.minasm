@@ -1,18 +1,35 @@
-print "by：[orange]awa[]\n物品源逻辑，优先填充建材"
+print "by：[orange]awa[]\n物品源逻辑，优先填充建材，有单位时无需连接核心"
 printflush message1
 
 bSerpulo = true
 bErekir = false
-
 bSand = true
 
+nSandRation = 16
+
+iUnit = 0
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+    ulocate building core false null xCore yCore bCoreFound dCore
+    jump findItem bCoreFound
+  .fi
+.when iUnit < @unitCount
+
+iBlock = 0
 .do
   dCore = %i
-  i += 1
-  i %= @links
+  iBlock += 1
   nCapacity = dCore.@itemCapacity
-.until nCapacity >= 300
+  jump findItem nCapacity >= 300
+.when iBlock < @links
 
+end
+
+findItem:
+iItem = 0
 .do
   .do
     # test next
@@ -31,30 +48,28 @@ bSand = true
     lookup item mItem iItem
     nItem = dCore.mItem
     .if bItemIsSand
-      nItem *= 16
+      nItem *= nSandRation
     .fi
 
     # test cur
     jump setCur mItemCur == null
     nItemCur = dCore.mItemCur
     .if bItemCurIsSand
-      nItemCur *= 16
+      nItemCur *= nSandRation
     .fi
 
     .if nItem <= nItemCur
 setCur:
       mItemCur = mItem
       bItemCurIsSand = bItemIsSand
-      i = 0
+      iBlock = 0
       .do
-        dBlock = %i
-        i += 1
+        dBlock = %iBlock
+        iBlock += 1
         control config dBlock mItem
-      .when i < @links
+      .when iBlock < @links
     .fi
   .until
 
   iItem += 1
-  iItem %= @itemCount
-  bCoreDead = dCore.@dead
-.until bCoreDead
+.when iItem < @itemCount

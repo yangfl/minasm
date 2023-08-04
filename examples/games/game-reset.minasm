@@ -1,7 +1,5 @@
-jump hint switch1 === null
-bEnabled = switch1.@enabled
-.if bEnabled != false
-.label hint
+bSwitch = switch1.@enabled
+.if bSwitch
   print "[orange]重置[]"
   printflush message1
   end

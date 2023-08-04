@@ -1,6 +1,6 @@
-.if switch1 !== null
-  bEnabled = switch1.@enabled
-  jump disable bEnabled == 0
+bSwitch = switch1.@enabled
+.if bSwitch !== null
+  jump disable bSwitch == false
 .fi
 
 .do

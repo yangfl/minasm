@@ -17,8 +17,8 @@ _start:
 ucontrol unbind
 
 .if switch1 !== null
-  bEnabled = switch1.@enabled
-  end bEnabled == false
+  bSwitch = switch1.@enabled
+  end bSwitch == false
 .fi
 
 # read preset
@@ -88,7 +88,7 @@ nTargetCapacity = dTarget.@itemCapacity
 
     .int bindOne
     .break @unit === null
-    ucontrol boost 1
+    ucontrol boost true
 
     .int carrier
     .break carrier_bOk
@@ -101,12 +101,14 @@ nTargetCapacity = dTarget.@itemCapacity
 .while
   ubind mUnit
   .break @unit === null
-  bindAll_uController = @unit.@controller
-  .break bindAll_uController == @this
-  .if bindAll_uController == @unit
-    bindAll_nUnitControlled = @unit.@controlled
-    .break bindAll_nUnitControlled != @ctrlPlayer
-  .fi
+  bindAll_nUnitFlag = @unit.@flag
+  .continue bindAll_nUnitFlag
+#  bindAll_uController = @unit.@controller
+#  .break bindAll_uController == @this
+#  .if bindAll_uController == @unit
+#    bindAll_nUnitControlled = @unit.@controlled
+#    .break bindAll_nUnitControlled != @ctrlPlayer
+#  .fi
 .done
 .reti bindAll
 
@@ -123,6 +125,7 @@ bindOne_uFirstUnit = null
       .break bindOne_nUnitControlled != @ctrlPlayer
     .fi
     ucontrol flag 0
+    ucontrol unbind
     jump bindOne_rebind
   .fi
 

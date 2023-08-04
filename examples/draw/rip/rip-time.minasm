@@ -54,8 +54,8 @@ drawflush display1
 bDeadPrev = bDead
 
 .if switch1 !== null
-  bEnabled = switch1.@enabled
-  .if bEnabled == false
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
     control enabled switch1 true
     .if bDead == false
       iDeathReason += 1

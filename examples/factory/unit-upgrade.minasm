@@ -1,10 +1,5 @@
-mUnit = @poly
-
 dBlock = %0
 end dBlock === null
-
-nUintFlag = @thisy * @mapw
-nUintFlag += @thisx
 
 .while
   .do
@@ -22,9 +17,12 @@ nUintFlag += @thisx
     jump bindOk
   .until
 
-  ubind mUnit
+  ubind @poly
 .done
 bindOk:
+
+nUintFlag = @thisy * @mapw
+nUintFlag += @thisx
 
 ucontrol flag nUintFlag
 ucontrol boost true
