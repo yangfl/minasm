@@ -141,10 +141,10 @@ function matrixBackground (
 
 /**
  * @template T
- * @callback Metric
- * @param {T} a
- * @param {T} [b]
- * @returns {number}
+ * @callback Metric metric function of two data points
+ * @param {T} a data point
+ * @param {T} [b] another data point, default to origin point of the coordinate system
+ * @returns {number} metric
  */
 
 
@@ -182,11 +182,11 @@ function manhattan (a, b = null) {
 
 /**
  * @template T
- * @callback Grouper
- * @param {T[]} data
- * @param {number} K
- * @param {number[]} tags
- * @returns {[(?T)[], number[]]}
+ * @callback Grouper function to update centroids using existing tags
+ * @param {T[]} data input data points
+ * @param {number} K number of groups
+ * @param {number[]} tags tags for each data point
+ * @returns {[(?T)[], number[]]} updated centroids, and number of points in each group
  */
 
 
@@ -227,13 +227,14 @@ function euclideanGroup (data, K, tags) {
 
 
 /**
- * @template T
- * @param {T[]} data
- * @param {number} K
- * @param {number} stderror
- * @param {Metric<T>} metric
- * @param {Grouper<T>} grouper
- * @returns {[T[], number[], number[]]}
+ * Divide data points into K clusters using k-means algorithm.
+ * @template T data type
+ * @param {T[]} data input data points
+ * @param {number} K number of groups
+ * @param {number} stderror desired standard error of every centroid
+ * @param {Metric<T>} metric metric function of two data points
+ * @param {Grouper<T>} grouper function to update centroids using existing tags
+ * @returns {[T[], number[], number[]]} centroids, tags for each data point, and standard error of each centroid
  */
 function kmeans (
     data, K, stderror = 1e-6, metric = euclidean, grouper = euclideanGroup) {
@@ -835,7 +836,7 @@ function matrix2rectsOverlapping (
   const result = []
   for (let level = 0; level < bulks.length; level++) {
     result.push(...bulks[level].sort(
-      level & 1 === 0 ? -a.compare(b) : a.compare(b)))
+      (a, b) => level & 1 === 0 ? -a.compare(b) : a.compare(b)))
   }
   return [result, real]
 }
@@ -1190,8 +1191,30 @@ class CodegenUnordered extends ArrayDisplay {
  */
 class BaseBucketHeader extends BaseBucket {
   /**
-   * @param {string} displayName
-   * @returns {string[]}
+   * number of instructions in header
+   * @type {number}
+   */
+  static offset
+  /**
+   * number of micro op in one instruction
+   * @type {number}
+   */
+  static pack
+  /**
+   * number of instructions for one function call
+   * @type {number}
+   */
+  static block
+  /**
+   * instructions of drawer function
+   * @type {string[]}
+   */
+  static header
+
+  /**
+   * Generate header instructions with correct display name.
+   * @param {string} displayName display name
+   * @returns {string[]} header instructions with correct display name
    */
   static generateHeader (displayName = 'display1') {
     const cmds = this.header.slice()
@@ -1206,8 +1229,10 @@ class BaseBucketHeader extends BaseBucket {
   }
 
   /**
-   * @param {(string | bigint)[]} block
-   * @param {bigint[]} buffer
+   * Pack operations into instructions and flush input buffer.
+   * @param {(string | bigint)[]} block output instruction buffer
+   * @param {bigint[]} buffer operations
+   * @returns {boolean} `true` if input buffer is flushed
    */
   static flushPack (block, buffer) {
     if (buffer.length === 0) {
@@ -1221,16 +1246,21 @@ class BaseBucketHeader extends BaseBucket {
   }
 
   /**
-   * @param {(string | bigint)[]} block
-   * @param {bigint[]} buffer
+   * Pack operations into instructions and flush input buffer when input buffer
+   * is full; otherwise do nothing.
+   * @param {(string | bigint)[]} block output instruction buffer
+   * @param {bigint[]} buffer operations
+   * @returns {boolean} `true` if input buffer is flushed
    */
   static tryFlushPack (block, buffer) {
     return buffer.length >= this.pack && this.flushPack(block, buffer)
   }
 
   /**
-   * @param {string[]} cmds
-   * @param {(string | bigint)[]} buffer
+   * Translate packed micro ops into valid instructions and flush input buffer.
+   * @param {string[]} cmds output instruction buffer
+   * @param {(string | bigint)[]} buffer instructions or packed micro ops
+   * @returns {boolean} `true` if input buffer is flushed
    */
   static flushBlock (cmds, buffer) {
     if (buffer.length === 0) {
@@ -1268,8 +1298,11 @@ class BaseBucketHeader extends BaseBucket {
   }
 
   /**
-   * @param {string[]} cmds
-   * @param {(string | bigint)[]} buffer
+   * Translate packed micro ops into valid instructions and flush input buffer
+   * when input buffer is full; otherwise do nothing.
+   * @param {string[]} cmds output instruction buffer
+   * @param {(string | bigint)[]} buffer instructions or packed micro ops
+   * @returns {boolean} `true` if input buffer is flushed
    */
   static tryFlushBlock (cmds, buffer) {
     return (buffer.opCount >= this.block ||
@@ -2144,8 +2177,8 @@ form.addEventListener('change', async function (event) {
   const ctxRaw = canvasRaw.getContext('2d')
   ctxRaw.fillStyle = 'white'
   ctxRaw.fillRect(0, 0, canvasRaw.width, canvasRaw.height)
-  // CHROME BUG
-  ctxRaw.getImageData(0, 0, 1, 1)
+  // CHROME BUG #1335626
+  // ctxRaw.getImageData(0, 0, 1, 1)
   ctxRaw.drawImage(image, 0, 0, imageWidthScaled, imageHeightScaled)
 
   // extract canvas
@@ -2180,33 +2213,37 @@ form.addEventListener('change', async function (event) {
                           parseInt(form.elements['blur'].value) || 0)
 
   // convert to commands
-  /** @type {typeof Codegen} */
-  let CodegenType
+  /** @type {boolean} */
+  let unordered
   /** @type {Orthogonalizer} */
   let orthogonalizer
   switch (form.elements['spliter'].value) {
     case 'greedy':
+    default:
       orthogonalizer = matrix2rectsGreedy
-      CodegenType = CodegenUnordered
+      unordered = true
       break
     case 'greedy-block':
       orthogonalizer = matrix2rectsGreedy
-      CodegenType = Codegen
+      unordered = false
       break
     case 'overlapping':
-    default:
       orthogonalizer = matrix2rectsOverlapping
-      CodegenType = Codegen
+      unordered = false
       break
   }
+  /** @type {typeof Codegen} */
+  let CodegenType
   switch (form.elements['codegen'].value) {
-    case 'microop':
-      CodegenType =
-        CodegenType.unordered ? CodegenUnordered : CodegenMicroOp
+    case 'direct':
+    default:
+      CodegenType = unordered ? CodegenUnordered : Codegen
       break
     case 'struct':
-      CodegenType =
-        CodegenType.unordered ? CodegenUnordered : CodegenStruct
+      CodegenType = unordered ? CodegenUnorderedStruct : CodegenStruct
+      break
+    case 'microop':
+      CodegenType = unordered ? CodegenUnorderedMicroOp : CodegenMicroOp
       break
   }
   /** @type {HTMLCanvasElement} */

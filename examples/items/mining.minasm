@@ -27,15 +27,6 @@ uType = @unit.@type
   .fi
 .fi
 
-.do
-  .break @unit == uFirst
-  bFirstDead = uFirst.@dead
-  .break bFirstDead
-  jump notFirst
-.until
-uFirst = null
-notFirst:
-
 nFlag = @unit.@flag
 end nFlag
 # uController = @unit.@controller
@@ -53,14 +44,18 @@ end nFlag
 # .fi
 
 ulocate building core false null xCore yCore bCoreFound dCore
-.if uFirst === null
-  uFirst = @unit
 
-  bAuto = switch2.@enabled
-  .if bAuto == false
-    mWanted = sorter1.@config
-    ulocate ore core true mWanted xOre yOre bOreFound
-  .else
+bAuto = switch2.@enabled
+.if bAuto == false
+  mWanted = sorter1.@config
+  ulocate ore core true mWanted xOre yOre bOreFound
+  .if bOreFound == false
+    mWanted = null
+  .fi
+.else
+  iLoop += 1
+  .if iLoop > 29
+    iLoop = 0
     mItem = @copper
     ulocate ore core true mItem xItem yItem bItemFound
     .int testItem
@@ -82,7 +77,7 @@ ulocate building core false null xCore yCore bCoreFound dCore
     mItem = @beryllium
     ulocate ore core true mItem xItem yItem bItemFound
     .int testItem
-sand:
+  sand:
 
     bSand = switch3.@enabled
     .if bSand
@@ -103,13 +98,8 @@ sand:
 
     control config sorter1 mWanted
   .fi
-  end mWanted === null
 .fi
-
-.if bOreFound == false
-  mWanted = null
-  end
-.fi
+end mWanted === null
 
 ucontrol boost true
 
