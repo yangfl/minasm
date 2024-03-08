@@ -48,10 +48,6 @@ ulocate building core false null xCore yCore bCoreFound dCore
 bAuto = switch2.@enabled
 .if bAuto == false
   mWanted = sorter1.@config
-  ulocate ore core true mWanted xOre yOre bOreFound
-  .if bOreFound == false
-    mWanted = null
-  .fi
 .else
   iLoop += 1
   .if iLoop > 29
@@ -77,7 +73,7 @@ bAuto = switch2.@enabled
     mItem = @beryllium
     ulocate ore core true mItem xItem yItem bItemFound
     .int testItem
-  sand:
+sand:
 
     bSand = switch3.@enabled
     .if bSand
@@ -101,6 +97,12 @@ bAuto = switch2.@enabled
 .fi
 end mWanted === null
 
+ulocate ore core true mWanted xOre yOre bOreFound
+.if bOreFound == false
+  mWanted = null
+  end
+.fi
+
 ucontrol boost true
 
 nUnitCapacity = @unit.@itemCapacity
@@ -120,17 +122,20 @@ mUnitItem = @unit.@firstItem
       yMining = @unit.@mineY
       .break yMining != yOre
     .fi
-    ucontrol mine xOre yOre
     jump mineApproach
   .until
   ucontrol stop
 
 mineApproach:
   ucontrol approach xOre yOre 5
+  ucontrol within xOre yOre 9 bWithin
+  .if bWithin
+    ucontrol mine xOre yOre
+  .fi
   end
 .until
 
-# drop
+# drop items
 ucontrol stop
 ucontrol itemDrop dCore nUnitCapacity
 ucontrol approach xCore yCore 5
@@ -145,13 +150,10 @@ end
     .if mWanted
       testItem_nItem = dCore.mItem
       testItem_nWanted = dCore.mWanted
-      testItem_nTest = nWanted * 0.95
+      testItem_nTest = testItem_nWanted * 0.95
       .break testItem_nItem > testItem_nTest
     .fi
     mWanted = mItem
   .fi
-  xOre = xItem
-  yOre = yItem
-  bOreFound = true
 .until
 .reti testItem

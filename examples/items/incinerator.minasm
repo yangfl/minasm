@@ -1,54 +1,67 @@
-print "by：[orange]awa[]\n烧核心物品，必须链接核心本体（不能是容器）"
+print "by：[orange]awa[]\n烧核心物品，有单位时无需连接核心，核心链接必须链接核心本体（不能是容器）"
 printflush message1
 
-i = 0
+# find core
+iBlock = 0
 .do
-  .if i >= @links
-    i = 0
-    .do
-      dBlock = %i
-      i += 1
-      control enabled dBlock false
-    .when i < @links
-    i = 0
-  .fi
-  dCore = %i
-  i += 1
+  dCore = %iBlock
+  iBlock += 1
   nCapacity = dCore.@itemCapacity
-.until nCapacity >= 4000
+  jump coreFound nCapacity >= 4000
+.when iBlock < @links
 
+iUnit = 0
+jump detectCore @unit
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+detectCore:
+    ulocate building core false null xCore yCore bCoreFound dCore
+    .if bCoreFound
+      nCapacity = dCore.@itemCapacity
+      jump coreFound
+    .fi
+  .fi
+.when iUnit < @unitCount
+
+# core not found; disable all unloaders
+iBlock = 0
+.do
+  dBlock = %iBlock
+  iBlock += 1
+  control enabled dBlock false
+.when iBlock < @links
+
+end
+
+coreFound:
+nMaxItem = 0
+mMaxItem = null
 iItem = 0
 .do
   lookup item mItem iItem
   iItem += 1
 
   nItem = dCore.mItem
-  nDiff = nCapacity - nItem
-
-  .if nDiff <= 1000
-    mMinItem = mItem
-    i = 0
-    .do
-      dBlock = %i
-      i += 1
-      control enabled dBlock true
-      control config dBlock mItem
-    .when i < @links
-  .else
-    .do
-      .if mMinItem !== null
-        nItem = dCore.mMinItem
-        nDiff = nCapacity - nItem
-        .break nDiff <= 1000
-        mMinItem = null
-      .fi
-
-      i = 0
-      .do
-        dBlock = %i
-        i += 1
-        control enabled dBlock false
-      .when i < @links
-    .until
+  .if nItem > nMaxItem
+    nMaxItem = nItem
+    mMaxItem = mItem
   .fi
 .when iItem < @itemCount
+
+nDiff = nCapacity - nMaxItem
+
+iBlock = 0
+.do
+  dBlock = %iBlock
+  iBlock += 1
+  .if nDiff <= 1000
+    control config dBlock mMaxItem
+    control enabled dBlock true
+  .else
+    control enabled dBlock false
+    control config dBlock null
+  .fi
+.when iBlock < @links

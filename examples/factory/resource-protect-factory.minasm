@@ -7,15 +7,30 @@ nMinPower = 0.3
 .fi
 
 # find core
-i = 0
-.while
-  dCore = %i
-  i += 1
+iBlock = 0
+.do
+  dCore = %iBlock
+  iBlock += 1
   nCapacity = dCore.@itemCapacity
-  .break nCapacity >= 300
-  end i >= @links
-.done
+  jump coreFound nCapacity >= 4000
+.when iBlock < @links
 
+iUnit = 0
+jump detectCore @unit
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+detectCore:
+    ulocate building core false null xCore yCore bCoreFound dCore
+    jump coreFound bCoreFound
+  .fi
+.when iUnit < @unitCount
+
+end
+
+coreFound:
 nFlagReg = 0
 bSwitch = true
 

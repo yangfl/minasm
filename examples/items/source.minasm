@@ -7,28 +7,31 @@ bSand = true
 
 nSandRation = 16
 
+# find core
+iBlock = 0
+.do
+  dCore = %iBlock
+  iBlock += 1
+  nCapacity = dCore.@itemCapacity
+  jump coreFound nCapacity >= 4000
+.when iBlock < @links
+
 iUnit = 0
+jump detectCore @unit
 .do
   lookup unit mUnit iUnit
   iUnit += 1
   ubind mUnit
   .if @unit
+detectCore:
     ulocate building core false null xCore yCore bCoreFound dCore
-    jump findItem bCoreFound
+    jump coreFound bCoreFound
   .fi
 .when iUnit < @unitCount
 
-iBlock = 0
-.do
-  dCore = %i
-  iBlock += 1
-  nCapacity = dCore.@itemCapacity
-  jump findItem nCapacity >= 300
-.when iBlock < @links
-
 end
 
-findItem:
+coreFound:
 iItem = 0
 .do
   .do
