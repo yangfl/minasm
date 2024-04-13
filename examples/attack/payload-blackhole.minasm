@@ -1,0 +1,26 @@
+.while
+  lookup unit uType i
+  .break uType === null
+  i += 1
+
+  uFirstUnit = null
+  .while
+    ubind uType
+    .break @unit === null
+    .if uFirstUnit === null
+      uFirstUnit = @unit
+    .elif uFirstUnit == @unit
+      .break
+    .fi
+    nUnitControlled = @unit.@controlled
+    .continue nUnitControlled == @ctrlPlayer
+    dBlock = %0
+    x = dBlock.@x
+    y = dBlock.@y
+    ucontrol boost 1
+    ucontrol move x y
+    ucontrol payEnter
+  .done
+.done
+
+i = 0

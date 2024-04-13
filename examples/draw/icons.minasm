@@ -1,0 +1,66 @@
+mItem = @lead
+.int iconWorking
+wait 0.5
+end
+
+
+.label iconWorking mItem
+draw clear 255 255 255
+draw color 0 0 0 255
+draw poly 40 40 128 24 0
+draw stroke 16
+.if iconWorking_state == 0
+  draw line 40 16 40 64
+  draw line 19 28 61 52
+  draw line 61 28 19 52
+.else
+  draw line 17 40 63 40
+  draw line 28 19 52 61
+  draw line 52 19 28 61
+.fi
+iconWorking_state = iconWorking_state == false
+draw color 255 255 255 255
+draw poly 40 40 128 12 0
+.if mItem !== null
+  draw image 64 16 mItem 32 0
+.fi
+drawflush display1
+.reti iconWorking
+
+
+.label iconHalted mItem
+draw clear 128 128 128
+draw color 255 255 0 255
+draw triangle 4 8 76 8 40 71
+.if iconHalted_state == 0
+  draw stroke 8
+  draw color 128 128 128 255
+  draw line 40 20 40 21
+  draw line 40 36 40 44
+.fi
+iconHalted_state = iconHalted_state == false
+draw color 255 255 255 255
+.if mItem !== null
+  draw image 64 16 mItem 32 0
+.fi
+drawflush display1
+.reti iconHalted
+
+
+.label iconDisabled
+draw clear 255 255 255
+draw color 255 0 0 255
+draw poly 40 40 128 36 0
+draw color 255 255 255 255
+draw poly 40 40 128 28 0
+.if mItem !== null
+  draw image 64 16 mItem 32 0
+.fi
+.if iconDisabled_state == 0
+  draw stroke 8
+  draw color 255 0 0 255
+  draw line 25 40 55 40
+.fi
+iconDisabled_state = iconDisabled_state == false
+drawflush display1
+.reti iconDisabled

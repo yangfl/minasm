@@ -1,0 +1,61 @@
+dBlock = %0
+nMargin = 30
+.int autoUnloader
+
+end
+
+
+.label autoUnloader dBlock nMargin
+autoUnloader_nMinItem = dBlock.@itemCapacity
+autoUnloader_nMinItem -= nMargin
+autoUnloader_mMinItem = null
+autoUnloader_iItem = 0
+.do
+  lookup item autoUnloader_mItem autoUnloader_iItem
+  autoUnloader_iItem += 1
+  autoUnloader_nItem = dBlock.autoUnloader_mItem
+
+  .if autoUnloader_nItem > 0
+    .if autoUnloader_nItem <= autoUnloader_nMinItem
+      autoUnloader_nMinItem = autoUnloader_nItem
+      autoUnloader_mMinItem = autoUnloader_mItem
+    .fi
+  .fi
+.when autoUnloader_iItem < @itemCount
+
+autoUnloader_iFeeder = 0
+.do
+  autoUnloader_dFeeder = %autoUnloader_iFeeder
+  autoUnloader_iFeeder += 1
+  autoUnloader_nFeederItemCapacity = autoUnloader_dFeeder.@itemCapacity
+  .if autoUnloader_nFeederItemCapacity == 0
+    .if autoUnloader_mMinItem !== null
+      control config autoUnloader_dFeeder autoUnloader_mMinItem
+    .fi
+    control enabled autoUnloader_dFeeder autoUnloader_mMinItem
+  .fi
+.when autoUnloader_iFeeder < @links
+
+.reti autoUnloader
+
+
+.label tryUnloader dBlock nMargin mItem
+tryUnloader_nItemCapacity = dBlock.@itemCapacity
+tryUnloader_nItem = dBlock.mItem
+tryUnloader_nItemCapacity -= tryUnloader_nItem
+tryUnloader_bEnabled = tryUnloader_nItemCapacity >= nMargin
+
+tryUnloader_iFeeder = 0
+.do
+  tryUnloader_dFeeder = %tryUnloader_iFeeder
+  tryUnloader_iFeeder += 1
+  tryUnloader_nFeederItemCapacity = tryUnloader_dFeeder.@itemCapacity
+  .if tryUnloader_nFeederItemCapacity == 0
+    .if tryUnloader_bEnabled
+      control config tryUnloader_dFeeder mItem
+    .fi
+    control enabled tryUnloader_dFeeder tryUnloader_bEnabled
+  .fi
+.when tryUnloader_iFeeder < @links
+
+.reti tryUnloader

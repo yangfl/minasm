@@ -1,0 +1,229 @@
+ubind @collaris
+
+.if bInit == false
+  # constants
+  nRetract = 0.5
+  nRecall = 1
+  nApproachExtend = 15
+  nAttackExtend = 20
+  nItemThreshold = 1000
+
+  end @unit === null
+  uType = @unit.@type
+
+  xThis = floor @thisx
+  yThis = floor @thisy
+  nThisFlag = yThis * @mapw
+  nThisFlag += xThis
+
+  bInit = true
+.fi
+
+# kill switch
+bSwitch = switch1.@enabled
+.if bSwitch == false
+  uFirst = @unit
+  .do
+    nFlag = @unit.@flag
+    .if nFlag == nThisFlag
+      ucontrol boost false
+      ucontrol flag 0
+    .fi
+    ucontrol unbind
+    bDead = uFirst.@dead
+    .if bDead
+      uFirst = @unit
+    .fi
+    ubind uType
+    .break @unit === null
+  .until @unit == uFirst
+
+  .do
+    bSwitch = switch1.@enabled
+  .until bSwitch
+  end
+.fi
+
+nHealth = @unit.@health
+nMaxHealth = @unit.@maxHealth
+
+# real loop
+bKamikaze = switch2.@enabled
+nFlag = @unit.@flag
+.if nFlag == nThisFlag
+  jump beforeRecall bKamikaze
+  nRecallHealth = nRecall * nMaxHealth
+  .if nHealth >= nRecallHealth
+beforeRecall:
+    ucontrol flag 0
+    jump recall
+  .fi
+
+retract:
+  ulocate building repair false null xRepair yRepair bRepairFound dRepair
+  ucontrol boost true
+  .if bRepairFound
+    ucontrol approach xRepair yRepair 6
+  .else
+    ucontrol approach @thisx @thisy 8
+  .fi
+.elif nFlag == 0
+  .if bKamikaze == false
+    nRetractHealth = nRetract * nMaxHealth
+    .if nHealth < nRetractHealth
+      ucontrol flag nThisFlag
+      jump retract
+    .fi
+  .fi
+
+recall:
+  # check items
+  mItem = sorter1.@config
+  .if mItem
+    nUnitCapacity = @unit.@itemCapacity
+    mUnitItem = @unit.@firstItem
+    .if mUnitItem
+      jump takeItems mUnitItem != mItem
+    .fi
+    nUnitItems = @unit.@totalItems
+    jump takeItems nUnitItems < nUnitCapacity
+  .fi
+
+  .if 0
+takeItems:
+    ulocate building core false null xCore yCore bCoreFound dCore
+    nItem = dCore.mItem
+    .if nItem >= nItemThreshold
+      .if mUnitItem
+        .if mUnitItem != mItem
+          ucontrol itemDrop dCore nUnitCapacity
+        .fi
+      .fi
+      ucontrol itemTake dCore mItem nUnitCapacity
+    .fi
+    ucontrol boost true
+    ucontrol approach xCore yCore 5
+  .else
+    xUnit = @unit.@x
+    yUnit = @unit.@y
+
+    .do
+      .break uType == @horizon
+      .break uType == @quad
+      .break uType == @oct
+      jump notBomber
+    .until
+
+    bBomber = true
+    ucontrol target xUnit yUnit true
+    jump pathfind
+
+notBomber:
+    bBomber = false
+    nRange = @unit.@range
+    nAttackWithin = nRange + nAttackExtend
+
+    bApproach = bKamikaze == false
+    .do
+      uradar enemy ground any distance false true uEnemy
+      .if uEnemy !== null
+        xEnemy = uEnemy.@x
+        yEnemy = uEnemy.@y
+        ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+        .break bEnemyWithin
+        uEnemy = null
+      .fi
+
+      ulocate building turret true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      bApproach = false
+      ulocate building reactor true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building core true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building repair true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building generator true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building battery true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building factory true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      ulocate building storage true null xEnemy yEnemy bEnemyFound dEnemy
+      ucontrol within xEnemy yEnemy nAttackWithin bEnemyWithin
+      .break bEnemyWithin
+
+      xEnemy = null
+    .until
+
+    .if uEnemy !== null
+      bEnemyDead = uEnemy.@dead
+      .if bEnemyDead
+        uEnemy = null
+      .else
+        ucontrol targetp uEnemy true
+        xEnemy = uEnemy.@x
+        yEnemy = uEnemy.@y
+      .fi
+    .elif xEnemy !== null
+      dxEnemy = xEnemy - xUnit
+      dyEnemy = yEnemy - yUnit
+      nEnemyDistance = dxEnemy len dyEnemy
+      nAttackRange = nRange - 2
+      nRangeEnemyRation = nAttackRange / nEnemyDistance
+      dxTarget = nRangeEnemyRation * dxEnemy
+      dyTarget = nRangeEnemyRation * dyEnemy
+      xTarget = xUnit + dxTarget
+      yTarget = yUnit + dyTarget
+      ucontrol target xTarget yTarget true
+    .else
+      ucontrol idle
+    .fi
+
+move:
+    ucontrol boost false
+    .if bApproach
+      nApproach = nRange + nApproachExtend
+      ucontrol approach xEnemy yEnemy nApproach
+    .else
+pathfind:
+      bManual = switch3.@enabled
+      .do
+        .break bManual == false
+        xTarget = arc1.@shootX
+        yTarget = arc1.@shootY
+        .break xTarget == 0
+        .break yTarget == 0
+        ucontrol move xTarget yTarget
+        jump moveEnd
+      .until
+
+      bBoosting = @unit.@boosting
+      .if bBoosting
+        ucontrol approach @thisx @thisy 8
+      .elif bBoomer
+        ulocate building turret true null xEnemy yEnemy bEnemyFound dEnemy
+        jump autoPathfind bEnemyFound == false
+        ucontrol move xEnemy yEnemy
+      .else
+autoPathfind:
+        ucontrol autoPathfind
+      .fi
+moveEnd:
+    .fi
+  .fi
+.fi

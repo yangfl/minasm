@@ -1,0 +1,21 @@
+cell1[2] = 0
+
+cell1[3] = 10
+cell1[4] = 10
+
+cell1[8] = 255
+cell1[9] = 255
+cell1[10] = 255
+
+i = 0
+
+.do
+  cell1[1] = i
+
+  cell1[0] = 2
+  .do
+    bRunning = cell1[0]
+  .until bRunning == false
+
+  i += 16
+.when i < 704

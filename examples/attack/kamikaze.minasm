@@ -1,0 +1,173 @@
+nItemThreshold = 1000
+
+i += 1
+.if i >= 29
+  printflush message1
+  print "选择：\n"
+
+  mItem = sorter1.@config
+  .if mItem === null
+    end
+  .elif mItem == @copper
+    print ""
+    iUnit = 15
+  .elif mItem == @lead
+    print ""
+    iUnit = 16
+  .elif mItem == @metaglass
+    print ""
+    iUnit = 17
+  .elif mItem == @graphite
+    print ""
+    iUnit = 18
+  .elif mItem == @sand
+    print ""
+    iUnit = 21
+  .elif mItem == @coal
+    print ""
+    iUnit = 22
+  .elif mItem == @titanium
+    print ""
+    iUnit = 23
+  .elif mItem == @thorium
+    print ""
+    iUnit = 24
+  .elif mItem == @scrap
+    print ""
+    iUnit = 10
+  .elif mItem == @silicon
+    print ""
+    iUnit = 11
+  .elif mItem == @plastanium
+    print ""
+    iUnit = 12
+  .elif mItem == @phase-fabric
+    print ""
+    iUnit = 13
+  .elif mItem == @surge-alloy
+    print ""
+    iUnit = 19
+  .elif mItem == @spore-pod
+    print ""
+    iUnit = 14
+  .else
+    end
+  .fi
+
+  print " "
+
+  mItem = sorter2.@config
+  .if mItem !== null
+    nItemID = mItem.@id
+    nItemID *= 2
+    .case nItemID
+      # @copper
+      print ""
+      .stop
+      # @lead
+      print ""
+      .stop
+      # @metaglass
+      print ""
+      .stop
+      # @graphite
+      print ""
+      .stop
+      # @sand
+      print ""
+      .stop
+      # @coal
+      print ""
+      .stop
+      # @titanium
+      print ""
+      .stop
+      # @thorium
+      print ""
+      .stop
+      # @scrap
+      print ""
+      .stop
+      # @silicon
+      print ""
+      .stop
+      # @plastanium
+      print ""
+      .stop
+      # @phase-fabric
+      print ""
+      .stop
+      # @surge-alloy
+      print ""
+      .stop
+      # @spore-pod
+      print ""
+      .stop
+      # @blast-compound
+      print ""
+      .stop
+      # @pyratite
+      print ""
+      .stop
+      # @beryllium
+      print ""
+      .stop
+      # @fissile-matter
+      print ""
+      .stop
+      # @dormant-cyst
+      print ""
+      .stop
+      # @tungsten
+      print ""
+      .stop
+      # @oxide
+      print ""
+      .stop
+      # @carbide
+      print ""
+    .esac
+  .fi
+  i = 0
+.fi
+
+nControlled = arc1.@controlled
+bControlled = nControlled == @ctrlPlayer
+control enabled arc1 bControlled
+end bControlled == false
+
+lookup unit mUnit iUnit
+ubind mUnit
+end @unit === null
+
+.do
+  .if mItem
+    nUnitCapacity = @unit.@itemCapacity
+    mUnitItem = @unit.@firstItem
+    .if mUnitItem
+      .break mUnitItem != mItem
+    .fi
+    nUnitItems = @unit.@totalItems
+    .break nUnitItems < nUnitCapacity
+  .fi
+
+  # attack
+  xTarget = arc1.@shootX
+  yTarget = arc1.@shootY
+  ucontrol approach xTarget yTarget 5
+  ucontrol targetp @unit true
+  end
+.until
+
+# take items
+ulocate building core false null xCore yCore bCoreFound dCore
+nItem = dCore.mItem
+.if nItem >= nItemThreshold
+  .if mUnitItem
+    .if mUnitItem != mItem
+      ucontrol itemDrop dCore nUnitCapacity
+    .fi
+  .fi
+  ucontrol itemTake dCore mItem nUnitCapacity
+  ucontrol approach xCore yCore 5
+.fi

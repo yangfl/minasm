@@ -1,0 +1,85 @@
+print "by：[orange]awa[]\n物品源逻辑，优先填充建材，有单位时无需连接核心"
+printflush message1
+
+.if bInit == false
+  bSerpulo = true
+  bErekir = false
+  bSand = true
+
+  nSandRation = 16
+
+  bInit = true
+.fi
+
+bCoreDead = dCore.@dead
+.if bCoreDead
+  iBlock = 0
+  .do
+    dCore = %iBlock
+    iBlock += 1
+    nCapacity = dCore.@itemCapacity
+    jump coreFound nCapacity >= 1000
+  .when iBlock < @links
+
+  iUnit = 0
+  jump detectCore @unit !== null
+  .do
+    lookup unit mUnit iUnit
+    iUnit += 1
+    ubind mUnit
+    .if @unit !== null
+  detectCore:
+      ulocate building core false null xCore yCore bCoreFound dCore
+      jump coreFound bCoreFound
+    .fi
+  .when iUnit < @unitCount
+
+  dCore = null
+  end
+coreFound:
+.fi
+
+iItem = 0
+.do
+  .do
+    # test next
+    .if iItem < 16
+      .break bSerpulo == false
+    .elif iItem < 23
+      .break bErekir == false
+    .fi
+
+    bItemIsSand = 0x6e130 >> iItem
+    bItemIsSand &= 1
+    .if bItemIsSand
+      .break bSand == false
+    .fi
+
+    lookup item mItem iItem
+    nItem = dCore.mItem
+    .if bItemIsSand
+      nItem *= nSandRation
+    .fi
+
+    # test cur
+    jump setCur mItemCur == null
+    nItemCur = dCore.mItemCur
+    .if bItemCurIsSand
+      nItemCur *= nSandRation
+    .fi
+
+    .if nItem <= nItemCur
+setCur:
+      mItemCur = mItem
+      bItemCurIsSand = bItemIsSand
+      iBlock = 0
+      .do
+        dBlock = %iBlock
+        iBlock += 1
+        control config dBlock mItem
+      .when iBlock < @links
+    .fi
+  .until
+
+  iItem += 1
+.when iItem < @itemCount

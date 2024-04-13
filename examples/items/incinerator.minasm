@@ -1,0 +1,69 @@
+print "by：[orange]awa[]\n烧核心物品，有单位时无需连接核心，核心链接必须链接核心本体（不能是容器）"
+printflush message1
+
+bCoreDead = dCore.@dead
+.if bCoreDead
+  iBlock = 0
+  .do
+    dCore = %iBlock
+    iBlock += 1
+    nCapacity = dCore.@itemCapacity
+    jump coreFound nCapacity >= 4000
+  .when iBlock < @links
+
+  iUnit = 0
+  jump detectCore @unit !== null
+  .do
+    lookup unit mUnit iUnit
+    iUnit += 1
+    ubind mUnit
+    .if @unit !== null
+  detectCore:
+      ulocate building core false null xCore yCore bCoreFound dCore
+      jump coreFound bCoreFound
+    .fi
+  .when iUnit < @unitCount
+
+  dCore = null
+
+  # core not found; disable all unloaders
+  iBlock = 0
+  .do
+    dBlock = %iBlock
+    iBlock += 1
+    control enabled dBlock false
+  .when iBlock < @links
+
+  end
+coreFound:
+.fi
+
+nMaxItem = 0
+mMaxItem = null
+iItem = 0
+.do
+  lookup item mItem iItem
+  iItem += 1
+
+  nItem = dCore.mItem
+  .if nItem > nMaxItem
+    nMaxItem = nItem
+    mMaxItem = mItem
+  .fi
+.when iItem < @itemCount
+
+nCapacity = dCore.@itemCapacity
+nDiff = nCapacity - nMaxItem
+
+iBlock = 0
+.do
+  dBlock = %iBlock
+  iBlock += 1
+  .if nDiff <= 1000
+    control config dBlock mMaxItem
+    control enabled dBlock true
+  .else
+    control enabled dBlock false
+    control config dBlock null
+  .fi
+.when iBlock < @links

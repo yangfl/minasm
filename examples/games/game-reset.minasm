@@ -1,0 +1,32 @@
+bSwitch = switch1.@enabled
+.if bSwitch
+  print "[orange]重置[]"
+  printflush message1
+  end
+.fi
+
+print "[green]正在重置"
+printflush message1
+
+i = 0
+.do
+  dBlock = %i
+  control enabled dBlock false
+  draw clear 86 86 102
+  drawflush dBlock
+  i += 1
+.when i < @links
+
+i = 0
+.do
+  bank1[i] = 0
+  bank4[i] = 0
+  i += 1
+.when i < 512
+
+i = 0
+.do
+  dBlock = %i
+  control enabled dBlock true
+  i += 1
+.when i < @links

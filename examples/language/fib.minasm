@@ -1,0 +1,31 @@
+.stack cell1
+
+N = 10
+fibN = N
+.call fib
+result = fibF
+
+print "斐波那契 "
+print N
+print " = "
+print fibF
+printflush message1
+end
+
+.fun fib
+.if fibN <= 1
+  fibF = fibN
+.else
+  fibN -= 1
+  .push fibN
+  .call fib
+  .pop fibN
+  .push fibF
+
+  fibN -= 1
+  .call fib
+  .pop fibF2
+
+  fibF += fibF2
+.fi
+.ret

@@ -1,0 +1,116 @@
+nColumn = 4
+# nRow = 4
+# nWidth = nColumn * 176
+# nHeight = nRow * 176
+
+.do
+  arg0 = cell1[0]
+.until arg0
+
+boundingX1 = cell1[1]
+boundingY1 = cell1[2]
+globalX = boundingX1
+globalY = boundingY1
+arg3 = cell1[3]
+arg4 = cell1[4]
+# lazy read
+# arg5 = cell1[5]
+# arg6 = cell1[6]
+# arg7 = cell1[7]
+
+.if arg0 < 0
+  .if arg0 == -1
+    # image
+    arg5 = cell1[5]
+
+    .if arg3 == 1
+      mItem = @copper
+    .elif arg3 == 2
+      mItem = @lead
+    .fi
+
+    # arg4 is size
+    halfSize = arg4 / 2
+    globalX += halfSize
+    globalY += halfSize
+
+    .if arg4 > 176
+      boundingX1 = globalX - 88
+      boundingY1 = globalY - 88
+      arg4 = 176
+    .fi
+
+    boundingX2 = boundingX1 + arg4
+    boundingY2 = boundingY1 + arg4
+  .fi
+.else
+  R = cell1[8]
+  G = cell1[9]
+  B = cell1[10]
+  A = cell1[11]
+  A = 255 - A
+  draw color R G B A
+
+  # strok = cell1[12]
+  # draw stroke strok
+
+  .if arg0 == 2
+    # rect
+    globalY += arg4
+    boundingX2 = boundingX1 + arg3
+    boundingY2 = globalY
+  .fi
+.fi
+
+# boundingX1 = boundingX1 max 0
+# boundingY1 = boundingY1 max 0
+# boundingX2 = boundingX2 min nWidth
+# boundingY2 = boundingY2 min nHeight
+
+nStartColumn = boundingX1 // 176
+nEndColumn = boundingX2 + 175
+nEndColumn //= 176
+iRow = boundingY1 // 176
+nEndRow = boundingY2 + 175
+nEndRow //= 176
+
+globalY = 176 - globalY
+
+.do
+  i = iRow * nColumn
+  iColumn = nStartColumn
+
+  .do
+    j = i + iColumn
+    jump end j >= @links
+    dDisplay = %j
+
+    #  draw clear
+    #  drawflush dDisplay
+
+    offsetX = iColumn * 176
+    offsetY = iRow * 176
+    relativeX = globalX - offsetX
+    relativeY = globalY + offsetY
+
+    .if arg0 == 1
+    .elif arg0 == 2
+      draw rect relativeX relativeY arg3 arg4
+    # .elif arg0 == 3
+    # .elif arg0 == 4
+    # .elif arg0 == 5
+    # .elif arg0 == 6
+    .elif arg0 == -1
+      draw image relativeX relativeY mItem arg4 arg5
+    .fi
+
+    drawflush dDisplay
+
+    iColumn += 1
+  .when iColumn < nEndColumn
+
+  iRow += 1
+.when iRow < nEndRow
+end:
+
+cell1[0] = 0

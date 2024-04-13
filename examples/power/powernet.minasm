@@ -1,0 +1,75 @@
+bSwitch = switch1.@enabled
+.if bSwitch !== null
+  jump disable bSwitch == false
+.fi
+
+.do
+  nCapacity1 = node1.@powerNetCapacity
+  nStored1 = node1.@powerNetStored
+  nRatio1 = nStored1 / nCapacity1
+  .break nRatio1 > 0.1
+
+  nCapacity2 = node2.@powerNetCapacity
+  nStored2 = node2.@powerNetStored
+  nRatio2 = nStored2 / nCapacity2
+  .break nRatio2 > 0.1
+
+  jump disable
+.until
+
+bDiodeEnabled = diode1.@enabled
+.if bDiodeEnabled != 0
+  control config sorter1 @plastanium
+.else
+  .if never
+disable:
+    control enabled diode1 0
+    control enabled diode2 0
+  .fi
+  control config sorter1 @blast-compound
+.fi
+
+# calculate net power
+in1 = node1.@powerNetIn
+out1 = node1.@powerNetOut
+in2 = node2.@powerNetIn
+out2 = node2.@powerNetOut
+
+in = in1 + in2
+out = out1 + out2
+net = in - out
+net *= 20
+
+# calculate average load
+# 50 a = 49 a + 1000d
+average *= 0.98
+average += net
+averageRounded = floor average
+averageRounded /= 1000
+
+# print
+print "平均电网收支: "
+.if averageRounded >= 0
+  print "[green]+"
+  print averageRounded
+.else
+  print "[red]"
+  print averageRounded
+  require = abs averageRounded
+  print "\n[]涡轮: [red]"
+  steam = require / 0.33
+  steam = ceil steam
+  steam /= 1000
+  print steam
+  print "\n[]钍反: [red]"
+  thorium = require / 0.9
+  thorium = ceil thorium
+  thorium /= 1000
+  print thorium
+  print "\n[]冲反: [red]"
+  impact = require / 7.8
+  impact = ceil impact
+  impact /= 1000
+  print impact
+.fi
+printflush message1
