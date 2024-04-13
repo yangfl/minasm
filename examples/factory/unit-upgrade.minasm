@@ -1,0 +1,37 @@
+dBlock = %0
+end dBlock === null
+
+.while
+  .do
+    bUnitDead = @unit.@dead
+    .break bUnitDead
+
+    nUnitControlled = @unit.@controlled
+    .break nUnitControlled == @ctrlPlayer
+
+    .if nUnitControlled == @ctrlProcessor
+      nUnitController = @unit.@controller
+      .break nUnitController != @this
+    .fi
+
+    jump bindOk
+  .until
+
+  ubind @poly
+.done
+bindOk:
+
+nUnitFlag = @thisy * @mapw
+nUnitFlag += @thisx
+
+ucontrol flag nUnitFlag
+ucontrol boost true
+
+xBlock = dBlock.@x
+yBlock = dBlock.@y
+
+ucontrol move xBlock yBlock
+ucontrol within xBlock yBlock 2 bWithin
+.if bWithin
+  ucontrol payEnter
+.fi

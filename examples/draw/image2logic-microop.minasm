@@ -1,0 +1,128 @@
+jump _start
+
+.entry
+
+.label i2lBlock
+__interrupt_i2l = @line1
+
+i2l_nInstC = nInst18
+jump i2l
+.entry
+i2l_nInstC = nInst17
+jump i2l
+.entry
+i2l_nInstC = nInst16
+jump i2l
+.entry
+i2l_nInstC = nInst15
+jump i2l
+.entry
+i2l_nInstC = nInst14
+jump i2l
+.entry
+i2l_nInstC = nInst13
+jump i2l
+.entry
+i2l_nInstC = nInst12
+jump i2l
+.entry
+i2l_nInstC = nInst11
+jump i2l
+.entry
+i2l_nInstC = nInst10
+jump i2l
+.entry
+i2l_nInstC = nInst9
+jump i2l
+.entry
+i2l_nInstC = nInst8
+jump i2l
+.entry
+i2l_nInstC = nInst7
+jump i2l
+.entry
+i2l_nInstC = nInst6
+jump i2l
+.entry
+i2l_nInstC = nInst5
+jump i2l
+.entry
+i2l_nInstC = nInst4
+jump i2l
+.entry
+i2l_nInstC = nInst3
+jump i2l
+.entry
+i2l_nInstC = nInst2
+jump i2l
+.entry
+i2l_nInstC = nInst1
+jump i2l
+.entry
+i2l_nInstC = nInst0
+jump i2l
+.entry
+
+__interrupt_i2lBlock += ${BucketMicroOp.block + 1}
+.reti i2lBlock
+
+
+.label i2l
+i2l_i = 0
+.do
+  i2l_nInst = i2l_nInstC & 0x7ff
+  i2l_nInstC >>= 11
+  i2l_i += 1
+
+  .if i2l_nInst < 0x10
+    i2l_nInst *= 2
+    .case i2l_nInst
+      drawflush display1
+      .stop
+      i2l_w = i2l_y
+      jump i2l_nInst1
+      i2l_h = i2l_y
+      draw rect i2l_x i2l_yPrev i2l_w i2l_h
+i2l_nInst1:
+      i2l_y = i2l_yPrev
+    .esac
+  .else
+    i2l_nArg = i2l_nInst & 0xff
+    i2l_nArg1 = i2l_nInst & 0xf
+    i2l_nArg2 = i2l_nArg >> 4
+    i2l_nOp = i2l_nInst >> 8
+
+    i2l_nOp *= 2
+    .case i2l_nOp
+      draw rect i2l_x i2l_y i2l_nArg1 i2l_nArg2
+      .stop
+      i2l_x += i2l_nArg1
+      jump i2l_nOp1
+      i2l_x -= i2l_nArg1
+      jump i2l_nOp1
+      i2l_r = i2l_nArg
+      .stop
+      i2l_g = i2l_nArg
+      .stop
+      i2l_b = i2l_nArg
+      jump i2l_nOp5
+      i2l_x = i2l_nArg
+      .stop
+      i2l_yPrev = i2l_y
+      i2l_y = i2l_nArg
+      .stop
+i2l_nOp5:
+      draw color i2l_r i2l_g i2l_b 255
+      .stop
+i2l_nOp1:
+      i2l_y += i2l_nArg2
+      i2l_y -= 8
+    .esac
+  .fi
+.when i2l_i < 5
+__interrupt_i2l += 2
+.reti i2l
+
+
+_start:
+__interrupt_i2lBlock = @line1

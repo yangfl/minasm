@@ -1,0 +1,7 @@
+dBlock = %i
+i += 1
+i %= @links
+
+nHeat = dBlock.@heat
+bEnabled = nHeat == 0
+control enabled dBlock bEnabled

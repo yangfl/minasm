@@ -1,0 +1,17 @@
+main {
+  height: calc(100vh - 1em);
+  width: calc(100vw - 1em);
+  display: flex;
+}
+
+#source, #result {
+  width: 50%;
+}
+
+#source {
+  margin-right: .5em;
+}
+
+#result {
+  margin-left: .5em;
+}

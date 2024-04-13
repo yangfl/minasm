@@ -1,0 +1,110 @@
+print "by：[orange]awa[]\n按需销毁单位"
+printflush message1
+
+.if bInit == false
+  nRange = 10
+
+  销毁所有 = false
+
+  .if 销毁所有 == false
+    顺序 = "T5 T4 T3 T2 T1"
+
+    陆攻 = 0b00000
+    陆辅 = 0b00000
+    陆爬 = 0b00000
+    空攻 = 0b00000
+    空辅 = 0b00000
+    海攻 = 0b00000
+    海辅 = 0b00000
+    s核 = 0b000
+    坦克 = 0b00000
+    白爬 = 0b00000
+    谔谔 = 0b00000
+    e核 = 0b000
+
+    陆攻 &= 0b11111
+    陆辅 &= 0b11111
+    陆爬 &= 0b11111
+    空攻 &= 0b11111
+    空辅 &= 0b11111
+    海攻 &= 0b11111
+    海辅 &= 0b11111
+    s核 &= 0b111
+    坦克 &= 0b11111
+    白爬 &= 0b11111
+    谔谔 &= 0b11111
+    e核 &= 0b111
+
+    nMaskT1 = 陆辅 << 5
+    nMaskT2 = 陆爬 << 10
+    nMaskT3 = 空攻 << 15
+    nMaskT4 = 空辅 << 20
+    nMaskT5 = 海攻 << 25
+    nMaskT6 = 海辅 << 30
+    nMaskT7 = s核 << 35
+    nMaskT8 = 坦克 << 38
+    nMaskT9 = 白爬 << 43
+    nMaskT10 = 谔谔 << 48
+
+    nMaskU0 = 陆攻 | nMaskT1
+    nMaskU1 = nMaskT2 | nMaskT3
+    nMaskU2 = nMaskT4 | nMaskT5
+    nMaskU3 = nMaskT6 | nMaskT7
+    nMaskU4 = nMaskT8 | nMaskT9
+
+    nMaskV0 = nMaskU0 | nMaskU1
+    nMaskV1 = nMaskU2 | nMaskU3
+    nMaskV2 = nMaskU4 | nMaskT10
+
+    nMaskW0 = nMaskV0 | nMaskV1
+
+    nMask = nMaskW0 | nMaskV2
+
+    .if nMask == 0
+      end e核 == 0
+    .fi
+  .else
+    nMask = -1
+    e核 = -1
+  .fi
+
+  bInit = true
+.fi
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  end bSwitch == false
+.fi
+
+dVoid = %0
+end dVoid === null
+
+xVoid = dVoid.@x
+yVoid = dVoid.@y
+
+iUnit = 0
+.do
+  .if iUnit < 53
+    nBit = nMask >> iUnit
+  .else
+    nUnitTemp = iUnit - 53
+    nBit = e核 >> nUnitTemp
+  .fi
+
+  bDestory = nBit & 1
+  .if bDestory
+    lookup unit mUnit iUnit
+    ubind mUnit
+    .if @unit
+      ucontrol within xVoid yVoid nRange bWithin
+      .if bWithin
+        ucontrol payEnter
+      .else
+        ucontrol boost true
+        ucontrol pathfind xVoid yVoid
+      .fi
+    .fi
+  .fi
+
+  iUnit += 1
+.when iUnit < @unitCount

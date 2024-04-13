@@ -1,0 +1,156 @@
+.if bInit == false
+  print "无线光传 使用方法"
+  print "1.改一个和其他光传组不同的 flag"
+  print "2.设定单位，分类器选择搬运类型"
+  print "3.母体逻辑 先 连接取出容器，后 连接放入容器"
+  print "4.等看到单位开始执行时，单独复制 无 连接建筑的小处理器即可"
+
+  nFlag = 54321
+
+  .do
+    ubind @poly
+  .until @unit !== null
+  mUnit = @unit.@type
+
+  bInit = true
+.fi
+
+.if switch1
+  bEnabled = switch1.@enabled
+  .if bEnabled == false
+    .if uTarget
+      uTarget = null
+      ucontrol flag 0
+      ucontrol unbind
+    .fi
+    end
+  .fi
+.fi
+
+bDead = uTarget.@dead
+.if bDead
+  uTarget = null
+  uFirstUnit = null
+  .while
+    .do
+      ubind mUnit
+    .until @unit !== null
+
+    nFlagTest = @unit.@flag
+    nFlagTest >>= 37
+    .if nFlagTest == nFlag
+      uTarget = @unit
+      .break
+    .fi
+
+    bFirstDead = uFirstUnit.@dead
+    .if bFirstDead
+      uFirstUnit = @unit
+    .elif uFirstUnit == @unit
+      end @links < 4
+
+      uFirstUnit = null
+      .while
+        .do
+          ubind mUnit
+        .until @unit !== null
+
+        .do
+          nControlled = @unit.@controlled
+          .if nControlled == @ctrlProcessor
+            .break nFlag != 0
+          .fi
+
+          ucontrol within 0 0 1 0
+          uController = @unit.@controller
+          .break uController != @this
+
+          uTarget = @unit
+          jump binded
+        .until
+
+        bFirstDead = uFirstUnit.@dead
+        .if bFirstDead
+          uFirstUnit = @unit
+        .elif uFirstUnit == @unit
+          end
+        .fi
+      .done
+binded:
+    .fi
+  .done
+.fi
+
+ubind uTarget
+ucontrol boost true
+
+iCounter -= 1
+.if iCounter <= 0
+  iCounter = 32
+  .if @links >= 4
+    d1 = %2
+    x1 = d1.@x
+    y1 = d1.@y
+
+    d2 = %3
+    x2 = d2.@x
+    y2 = d2.@y
+
+    dx = x2 - x1
+    dx += 32
+    dy = y2 - y1
+    dy += 32
+
+    mItem = sorter1.@config
+    nItemId = mItem.@id
+
+    nThisFlag = nFlag << 10
+    nThisFlag |= x1
+    nThisFlag <<= 10
+    nThisFlag |= y1
+    nThisFlag <<= 6
+    nThisFlag |= dx
+    nThisFlag <<= 6
+    nThisFlag |= dy
+    nThisFlag <<= 5
+    nThisFlag |= nItemId
+
+    ucontrol flag nThisFlag
+  .else
+    nUnitFlag = uTarget.@flag
+    nFlagTest = nUnitFlag >> 37
+    .if nFlagTest != nFlag
+      uTarget = null
+      end
+    .fi
+
+    nItemId = nUnitFlag & 31
+    nUnitFlag >>= 5
+    dy = nUnitFlag & 63
+    nUnitFlag >>= 6
+    dx = nUnitFlag & 63
+    nUnitFlag >>= 6
+    y1 = nUnitFlag & 1023
+    nUnitFlag >>= 10
+    x1 = nUnitFlag & 1023
+    nUnitFlag >>= 10
+
+    lookup item mItem nItemId
+
+    dx -= 32
+    dy -= 32
+    x2 = x1 + dx
+    y2 = y1 + dy
+  .fi
+.fi
+
+ucontrol itemTake d1 mItem 999
+ucontrol itemDrop d2 999
+nUnitItems = @unit.@totalItems
+.if nUnitItems != 0
+  ucontrol getBlock x2 y2 m2 d2
+  ucontrol approach x2 y2 7
+.else
+  ucontrol getBlock x1 y1 m1 d1
+  ucontrol approach x1 y1 7
+.fi

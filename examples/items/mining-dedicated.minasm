@@ -1,0 +1,85 @@
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    uFirst = @unit
+    uType = @unit.@type
+    .do
+      .break @unit === null
+      nFlag = @unit.@flag
+      .if nFlag == 0
+        ucontrol unbind
+      .fi
+      bFirstDead = uFirst.@dead
+      .if bFirstDead
+        uFirst = @unit
+      .fi
+      ubind uType
+    .until @unit == uFirst
+
+    .do
+      bSwitch = switch1.@enabled
+    .until bSwitch
+    end
+  .fi
+.fi
+
+.do
+  ubind @pulsar
+  nControlled = @unit.@controlled
+  .if nControlled == @ctrlProcessor
+    nFlag = @unit.@flag
+    .continue nFlag != 0
+  .fi
+  ucontrol within 0 0 1 0
+  uController = @unit.@controller
+.until uController == @this
+ucontrol flag 0
+
+mWanted = sorter1.@config
+ulocate ore core true mWanted xOre yOre bOreFound
+end bOreFound == false
+
+ucontrol boost true
+
+nUnitCapacity = @unit.@itemCapacity
+mUnitItem = @unit.@firstItem
+.do
+  .if mUnitItem
+    .break mUnitItem != mWanted
+  .fi
+  nUnitItems = @unit.@totalItems
+  .break nUnitItems >= nUnitCapacity
+
+  # mining
+  .do
+    xMining = @unit.@mineX
+    .if xMining >= 0
+      .break xMining != xOre
+      yMining = @unit.@mineY
+      .break yMining != yOre
+    .fi
+    jump mineApproach
+  .until
+  ucontrol stop
+
+mineApproach:
+  ucontrol move xOre yOre
+  ucontrol within xOre yOre 9 bWithin
+  .if bWithin
+    ucontrol mine xOre yOre
+  .fi
+  end
+.until
+
+# drop items
+dCore = %3
+.if dCore
+  xCore = dCore.@x
+  yCore = dCore.@y
+.else
+  ulocate building core false null xCore yCore bCoreFound dCore
+.fi
+
+ucontrol stop
+ucontrol itemDrop dCore nUnitCapacity
+ucontrol approach xCore yCore 5

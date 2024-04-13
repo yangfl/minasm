@@ -1,0 +1,12 @@
+.while @unit === null
+  ubind @poly
+  nFlag = @unit.@flag
+  .continue nFlag
+  uController = @unit.@controller
+  .if uController != @this
+    .continue uController != @unit
+  .fi
+.done
+
+ucontrol boost true
+ucontrol move

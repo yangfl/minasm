@@ -1,0 +1,294 @@
+nMinItem = 950
+nMinPower = 0.3
+
+mOut = @surge-alloy
+mIn = @copper
+mIn2 = @lead
+mIn3 = @titanium
+mIn4 = @silicon
+mIn5 = null
+
+nInRatio = .25
+nIn2Ratio = .25
+nIn3Ratio = .5
+nIn4Ratio = 1
+nIn5Ratio = 1
+
+# print title
+print "by [orange]awa[]\n核心资源保护\n当前配置："
+.do
+  .break mIn === null
+  mItem = mIn
+  .int printItem
+
+  .break mIn2 === null
+  mItem = mIn2
+  .int printItem
+
+  .break mIn3 === null
+  mItem = mIn3
+  .int printItem
+
+  .break mIn4 === null
+  mItem = mIn4
+  .int printItem
+
+  .break mIn5 === null
+  mItem = mIn5
+  .int printItem
+.until
+.if mOut
+  print " => "
+  mItem = mOut
+  .int printItem
+.fi
+
+mReason = null
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    mReason = @switch
+    jump disable
+  .fi
+.fi
+
+# find core
+iBlock = 0
+.do
+  dCore = %iBlock
+  iBlock += 1
+  nCapacity = dCore.@itemCapacity
+  jump coreFound nCapacity >= 300
+.when iBlock < @links
+
+iUnit = 0
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+    ulocate building core false null xCore yCore bCoreFound dCore
+    jump coreFound bCoreFound
+  .fi
+.when iUnit < @unitCount
+
+print "\n[red]找不到核心！链接核心或者生产一些单位[]"
+printflush message1
+
+end
+
+coreFound:
+
+nFlagReg = 0
+
+# test power
+i = 0
+.do
+  dBlock = %i
+  i += 1
+  nPowerNetCapacity = dBlock.@powerNetCapacity
+  .if nPowerNetCapacity > 0
+    nPowerNetStored = dBlock.@powerNetStored
+    nPower = nPowerNetStored / nPowerNetCapacity
+    .if nPower < nMinPower
+      mReason = @battery
+      jump disable
+    .fi
+    .break
+  .fi
+.when i < @links
+
+# test item
+.do
+  nOut = dCore.mOut
+
+  .break mIn === null
+  nIn = dCore.mIn
+  .if nIn < nMinItem
+    mReason = mIn
+    jump disable
+  .fi
+  nIn /= nInRatio
+  .if nIn < nOut
+    mReason = @core-nucleus
+    jump disable
+  .fi
+
+  .break mIn2 === null
+  nIn2 = dCore.mIn2
+  .if nIn2 < nMinItem
+    mReason = mIn2
+    jump disable
+  .fi
+  nIn2 /= nIn2Ratio
+  .if nIn2 < nOut
+    mReason = @core-nucleus
+    jump disable
+  .fi
+
+  .break mIn3 === null
+  nIn3 = dCore.mIn3
+  .if nIn3 < nMinItem
+    mReason = mIn3
+    jump disable
+  .fi
+  nIn3 /= nIn3Ratio
+  .if nIn3 < nOut
+    mReason = @core-nucleus
+    jump disable
+  .fi
+
+  .break mIn4 === null
+  nIn4 = dCore.mIn4
+  .if nIn4 < nMinItem
+    mReason = mIn4
+    jump disable
+  .fi
+  nIn4 /= nIn4Ratio
+  .if nIn4 < nOut
+    mReason = @core-nucleus
+    jump disable
+  .fi
+
+  .break mIn5 === null
+  nIn5 = dCore.mIn5
+  .if nIn5 < nMinItem
+    mReason = mIn5
+    jump disable
+  .fi
+  nIn5 /= nIn5Ratio
+  .if nIn5 < nOut
+    mReason = @core-nucleus
+    jump disable
+  .fi
+.until
+
+# action
+bEnabled = true
+
+.if 0
+disable:
+  bEnabled = false
+.fi
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+  .if dBlock != dCore
+    .if dBlock != switch1
+      control enabled dBlock bEnabled
+    .fi
+  .fi
+.when i < @links
+
+# print result
+
+.if mReason == @switch
+  print "\n[red]开关被关闭[]"
+.elif mReason !== null
+  .if mReason == @core-nucleus
+    mItem = mOut
+    print "\n[sky]输出产物[]"
+  .else
+    mItem = mReason
+    .if mReason == @battery
+      print "\n[orange]电量[]"
+    .else
+      print "\n[orange]原料[]"
+    .fi
+  .fi
+
+  .int printItem
+
+  .if mReason == @core-nucleus
+    print "[sky]超过原料储量[]"
+  .else
+    print "[orange]不足[]"
+  .fi
+.else
+  print "\n[green]正常运行[]"
+.fi
+printflush message1
+
+end
+
+
+.label printItem mItem
+printItem_nID = mItem.@id
+.if printItem_nID !== null
+  .if printItem_nID > @itemCount
+    print ""
+  .else
+    printItem_nID *= 2
+    .case printItem_nID
+      # @copper
+      print ""
+      .stop
+      # @lead
+      print ""
+      .stop
+      # @metaglass
+      print ""
+      .stop
+      # @graphite
+      print ""
+      .stop
+      # @sand
+      print ""
+      .stop
+      # @coal
+      print ""
+      .stop
+      # @titanium
+      print ""
+      .stop
+      # @thorium
+      print ""
+      .stop
+      # @scrap
+      print ""
+      .stop
+      # @silicon
+      print ""
+      .stop
+      # @plastanium
+      print ""
+      .stop
+      # @phase-fabric
+      print ""
+      .stop
+      # @surge-alloy
+      print ""
+      .stop
+      # @spore-pod
+      print ""
+      .stop
+      # @blast-compound
+      print ""
+      .stop
+      # @pyratite
+      print ""
+      .stop
+      # @beryllium
+      print ""
+      .stop
+      # @fissile-matter
+      print ""
+      .stop
+      # @dormant-cyst
+      print ""
+      .stop
+      # @tungsten
+      print ""
+      .stop
+      # @oxide
+      print ""
+      .stop
+      # @carbide
+      print ""
+    .esac
+  .fi
+.fi
+.reti printItem

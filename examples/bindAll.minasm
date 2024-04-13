@@ -1,0 +1,13 @@
+.do
+  ubind @flare
+  nControlled = @unit.@controlled
+  .if nControlled == @ctrlProcessor
+    nFlag = @unit.@flag
+    .continue nFlag != 0
+  .fi
+  ucontrol within 0 0 1 0
+  uController = @unit.@controller
+.until uController == @this
+ucontrol flag 0
+
+ucontrol move @thisx @thisy

@@ -1,0 +1,7 @@
+set x 0
+set y 0
+ubind @mono
+ucontrol move x y 0 0 0
+ucontrol mine x y 0 0 0
+ucontrol getBlock x y 0 m 0
+ucontrol itemDrop m 999 0 0 0

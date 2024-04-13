@@ -1,0 +1,157 @@
+print "by：[orange]awa[]\n[purple]全自动核弹井[]"
+
+nThoriumStorage = container1.@thorium
+.if nThoriumStorage < 35
+  control enabled reactor1 false
+  control enabled unloader1 false
+  control enabled unloader2 true
+
+  print "\n[acid]抓取poly运送核材料...[]"
+  printflush message1
+
+  .int initNublear
+  .int bindOne
+  end @unit === null
+
+  dTarget = container1
+  mWanted = @thorium
+  nTargetCapacity = 40
+  .int carrier
+
+  end
+.fi
+
+.if reactor1 === null
+  print "\n[orange]抓取poly制造核弹...[]"
+  printflush message1
+
+  .int initNublear
+  .int bindOne
+  end @unit === null
+
+  xReactor = @thisx + 1
+  yReactor = @thisy - 2
+  ucontrol approach xReactor yReactor 5
+  ucontrol build xReactor yReactor @thorium-reactor
+
+  end
+.fi
+
+ucontrol unbind
+
+nHeat = reactor1.@heat
+nThorium = reactor1.@thorium
+.if nHeat > 0.98
+  control enabled reactor1 false
+  bEnabledIn = nThorium < 1
+  control enabled unloader1 bEnabledIn
+  control enabled unloader2 false
+
+  nPercentage = nHeat * 100
+  print "\n[acid]充能完毕\n热量："
+  print nPercentage
+  print "%[]"
+  printflush message1
+  end
+.fi
+
+nThoriumWanted = 1 - nHeat
+nThoriumWanted *= 10
+bEnabledIn = nThorium < nThoriumWanted
+bEnabledOut = bEnabledIn == false
+control enabled unloader1 bEnabledIn
+control enabled unloader2 bEnabledOut
+control enabled reactor1 true
+
+print "\n[red]充能中"
+printflush message1
+
+end
+
+
+.label initNublear
+mUnit = @poly
+nUnitFlag = @thisy * @mapw
+nUnitFlag += @thisx
+.reti initNublear
+
+
+.label bindOne mUnit nUnitFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUnitFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  ubind mUnit
+  .break @unit === null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+bindOne_rebind:
+    .do
+      ubind mUnit
+      .break @unit === null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUnitFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne
+
+
+.label carrier @unit dTarget mWanted nTargetItems nTargetCapacity
+carrier_bOk = false
+.if nTargetItems < nTargetCapacity
+  # take items
+  # test if we already have the desired items
+  carrier_nUnitCapacity = @unit.@itemCapacity
+  carrier_mUnitItem = @unit.@firstItem
+  .do
+    .if carrier_mUnitItem == mWanted
+      carrier_nUnitItems = @unit.@totalItems
+      .break carrier_nUnitItems >= carrier_nUnitCapacity
+      carrier_nTargetWants = nTargetCapacity - nTargetItems
+      .break carrier_nUnitItems >= carrier_nTargetWants
+    .fi
+
+    # move to core
+    ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound dCore
+    ucontrol approach carrier_xCore carrier_yCore 5
+
+    # drop unwanted
+    carrier_mUnitItem = @unit.@firstItem
+    .if carrier_mUnitItem !== null
+      .if carrier_mUnitItem != mWanted
+        ucontrol itemDrop dCore carrier_nUnitCapacity
+      .fi
+    .fi
+
+    # take all
+    ucontrol itemTake dCore mWanted carrier_nUnitCapacity
+    carrier_tTakeCore = @time
+
+    .reti carrier
+  .until
+
+  # drop to target
+  carrier_xTarget = dTarget.@x
+  carrier_yTarget = dTarget.@y
+  ucontrol approach carrier_xTarget carrier_yTarget 5
+  carrier_tDuration = @time - carrier_tTakeCore
+  .if carrier_tDuration >= 1500
+    ucontrol within carrier_xTarget carrier_yTarget 6 carrier_bOk
+  .fi
+  ucontrol itemDrop dTarget carrier_nUnitCapacity
+.fi
+.reti carrier

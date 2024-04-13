@@ -1,0 +1,217 @@
+# mWanted = @lead
+# mBlockType = @scatter
+mWanted = @surge-alloy
+mBlockType = @cyclone
+nBlockWants = 10
+
+nProcessorID = @thisy * @mapw
+nProcessorID += @thisx
+
+.while
+redo:
+  # bind unit
+  uController = @unit.@controller
+  .if uController != @this
+    .do
+      ubind @flare
+      .continue @unit === null
+      bUnitControlled = @unit.@controlled
+      .continue bUnitControlled != 0
+    .until
+    ucontrol flag nProcessorID  # unit valid
+  .fi
+
+  # take items
+  .do
+    # test if we already have the desired items
+    nUnitCapacity = @unit.@itemCapacity
+    mUnitItem = @unit.@firstItem
+    .if mUnitItem == mWanted
+      nUnitItems = @unit.@totalItems
+      .break nUnitItems >= nUnitCapacity
+      nTargetWants = nTargetCapacity - nTargetItems
+      .break nUnitItems >= nTargetWants
+    .fi
+
+    # take from core
+    .do
+      # move to core
+      ulocate building core false 0 xCore yCore bCoreFound dCore
+      ucontrol approach xCore yCore 5
+
+      # test if we lost control
+      uController = @unit.@controller
+      jump redo uController != @this
+
+      # drop unwanted
+      mUnitItem = @unit.@firstItem
+      .if mUnitItem != null
+        .if mUnitItem != mWanted
+          ucontrol itemDrop dCore nUnitCapacity
+          .continue
+        .fi
+      .fi
+
+      # take all
+      ucontrol itemTake dCore mWanted nUnitCapacity
+      nUnitItems = @unit.@totalItems
+    .until nUnitItems
+  .until
+
+  .if xTarget == 0
+    # move to processor first
+reset:
+    xTarget = @thisx
+    yTarget = @thisy
+  .fi
+
+move:
+  # move to a valid block
+  .do
+    # move to (last) target
+    .do
+      # test if we lost control
+      uController = @unit.@controller
+      jump redo uController != @this
+
+      ucontrol move xTarget yTarget
+      ucontrol within xTarget yTarget 5 bWithin
+    .until bWithin
+
+    # detect new block
+    xTargetOld = xTarget
+    ulocate building turret false 0 xTarget yTarget bFound dTarget
+    mTargetType = dTarget.@type
+    jump reset mTargetType != mBlockType
+  .until xTargetOld == xTarget
+
+  # detect bridge
+  nDirection = 0
+  nSize = dTarget.@size
+  nOffset = nSize - 1
+  nOffset /= 2
+  xBridge = xTarget - nOffset
+  yBridge = yTarget - nOffset
+  .do
+    # down
+    yBridge -= 1
+    ucontrol getBlock xBridge yBridge mBridgeType dBridge
+    .if mBridgeType == @bridge-conveyor
+      yRouter = yBridge - 1
+      ucontrol getBlock xBridge yRouter mRouterType dRouter
+      .break mRouterType == @router
+      nDirection = 1
+      .break
+    .fi
+
+    # right
+    xBridge += nSize
+    yBridge += 1
+    ucontrol getBlock xBridge yBridge mBridgeType dBridge
+    .if mBridgeType == @bridge-conveyor
+      xRouter = xBridge + 1
+      ucontrol getBlock xRouter yBridge mRouterType dRouter
+      .break mRouterType == @router
+      nDirection = 2
+      .break
+    .fi
+
+    # up
+    xBridge -= 1
+    yBridge += nSize
+    ucontrol getBlock xBridge yBridge mBridgeType dBridge
+    .if mBridgeType == @bridge-conveyor
+      yRouter = yBridge + 1
+      ucontrol getBlock xBridge yRouter mRouterType dRouter
+      .break mRouterType == @router
+      nDirection = 3
+      .break
+    .fi
+
+    # left
+    xBridge -= nSize
+    yBridge -= 1
+    ucontrol getBlock xBridge yBridge mBridgeType dBridge
+    .if mBridgeType == @bridge-conveyor
+      xRouter = xBridge - 1
+      ucontrol getBlock xRouter yBridge mRouterType dRouter
+      .break mRouterType == @router
+      nDirection = 4
+      .break
+    .fi
+
+    jump reset
+  .until
+
+  # drop to target
+  nBridgeCapacity = dTarget.@itemCapacity
+
+  .while
+    ucontrol itemDrop dBridge nUnitCapacity
+
+    # wait transport
+    wait 0.2
+
+    # test if target is full
+    nBridgeItems = dBridge.@totalItems
+    .break nBridgeItems >= nBridgeCapacity
+
+    # test if target is gone
+    ucontrol getBlock xBridge yBridge mCurrentBridgeType dCurrentBridge
+    .if mCurrentBridgeType != null
+      jump reset dCurrentBridge != dBridge
+    .fi
+
+    # test if we lost control
+    uController = @unit.@controller
+    jump redo uController != @this
+
+    # test if we do not have any items
+    nUnitItems = @unit.@totalItems
+    jump redo nUnitItems == 0
+    ucontrol approach xBridge yBridge 5
+  .done
+
+  # move towards
+  .if nDirection == 1
+    xApproach = xTarget
+    yApproach = 0
+  .elif nDirection == 2
+    xApproach = @mapw
+    yApproach = yTarget
+  .elif nDirection == 3
+    xApproach = xTarget
+    yApproach = @maph
+  .elif nDirection == 4
+    xApproach = 0
+    yApproach = yTarget
+  .else
+    jump reset
+  .fi
+
+  .while
+    ucontrol approach xApproach yApproach 5
+
+    # test if we lost control
+    uController = @unit.@controller
+    jump redo uController != @this
+
+    # try to find next block
+    ulocate building turret false 0 xNewTarget yNewTarget bNewFound dNewTarget
+    .if dNewTarget != dTarget
+      mNewTargetType = dNewTarget.@type
+      .if mNewTargetType == mBlockType
+        xTarget = xNewTarget
+        yTarget = yNewTarget
+        .break
+      .fi
+    .fi
+
+    # test if we reach the edge of the map
+    ucontrol within xApproach yApproach 5 bWithin
+    .if bWithin
+      xTarget = 0
+      .break
+    .fi
+  .done
+.done
