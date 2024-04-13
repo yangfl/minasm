@@ -1,0 +1,114 @@
+iProcessor = @thisy * @mapw
+iProcessor += @thisx
+iProcessor = 0 - iProcessor
+
+.while
+  i %= 10
+  j = i * 6
+  i += 1
+
+  nState = cell1[j]
+  .continue nState <= 0
+
+  cell1[j] = iProcessor
+  j += 1
+  x = cell1[j]
+  j += 1
+  y = cell1[j]
+  j += 1
+  dataPixel1 = cell1[j]
+  j += 1
+  dataPixel2 = cell1[j]
+  j += 1
+  dataPixel3 = cell1[j]
+  j -= 5
+  iNewProcessor = cell1[j]
+  .continue iNewProcessor != iProcessor
+  cell1[j] = 0
+
+  .if nState > 255
+    colorBG = cell1[62]
+    B = colorBG & 0xff
+    colorBG >>= 8
+    G = colorBG & 0xff
+    colorBG >>= 8
+    R = colorBG & 0xff
+    colorBG >>= 8
+    A = 255 - colorBG
+    draw color R G B A
+    dy = nState & 0xff
+    dx = nState >> 8
+    draw rect x y dx dy
+  .fi
+
+  colorFG = cell1[63]
+  B = colorFG & 0xff
+  colorFG >>= 8
+  G = colorFG & 0xff
+  colorFG >>= 8
+  R = colorFG & 0xff
+  colorFG >>= 8
+  A = 255 - colorFG
+  draw color R G B A
+  .int drawPixels
+.done
+end
+
+
+.label drawPixels dataPixel1 dataPixel2 dataPixel3 x y
+drawPixels_dataPixel = dataPixel3
+drawPixels_i = -1
+.while
+  drawPixels_i += 1
+  drawPixels_row = drawPixels_dataPixel & 0xfff
+  .if drawPixels_row != 0
+    drawPixels_y = y + drawPixels_i
+    drawPixels_x = x + 11
+    .do
+      drawPixels_j = log drawPixels_row
+      drawPixels_j //= 0.69314
+      drawPixels_x1 = drawPixels_x - drawPixels_j
+
+      drawPixels_rowPixel = 1 << drawPixels_j
+      drawPixels_rowTest = drawPixels_row - drawPixels_rowPixel
+      drawPixels_rowPixelNext = drawPixels_rowPixel >> 1
+      .if drawPixels_rowTest < drawPixels_rowPixelNext
+        draw rect drawPixels_x1 drawPixels_y 1 1
+        .break drawPixels_rowTest <= 0
+        drawPixels_row = drawPixels_rowTest
+        .continue
+      .fi
+
+      drawPixels_rowPixels = -2 << drawPixels_j
+      drawPixels_rowPixels = ~ drawPixels_rowPixels
+      .if drawPixels_rowPixels == drawPixels_row
+        drawPixels_w = drawPixels_j + 1
+        draw rect drawPixels_x1 drawPixels_y drawPixels_w 1
+        .break
+      .fi
+      drawPixels_row = drawPixels_rowPixels - drawPixels_row
+
+      drawPixels_j1 = log drawPixels_row
+      drawPixels_j1 //= 0.69314
+      drawPixels_w = drawPixels_j - drawPixels_j1
+
+      drawPixels_rowPixels = -2 << drawPixels_j1
+      drawPixels_rowPixels = ~ drawPixels_rowPixels
+      drawPixels_row = drawPixels_rowPixels - drawPixels_row
+
+      draw rect drawPixels_x1 drawPixels_y drawPixels_w 1
+    .when drawPixels_row > 0
+  .fi
+
+  .if drawPixels_i == 3
+    drawPixels_dataPixel = dataPixel2
+  .elif drawPixels_i == 7
+    drawPixels_dataPixel = dataPixel1
+  .elif drawPixels_i >= 11
+    .break
+  .else
+    drawPixels_dataPixel >>= 12
+  .fi
+.done
+drawflush display1
+.reti drawPixels

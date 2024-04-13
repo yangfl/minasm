@@ -1,0 +1,170 @@
+nWait = 0.5
+nMin = 200
+nMax = 500
+nWait *= 1000
+
+.if source1 === null
+  control enabled junction1 false
+  control enabled junction2 false
+  control enabled junction3 false
+  control enabled junction4 false
+  control enabled junction5 false
+  control enabled junction6 false
+  control enabled junction7 false
+  control enabled junction8 false
+  control enabled junction9 false
+  control enabled junction10 false
+  control enabled junction11 false
+  end
+.fi
+
+bQuick = true
+dContainer = container1
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction1
+  mLiquid = @cryofluid
+  .int pump
+.fi
+
+dContainer = container2
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction2
+  mLiquid = @ozone
+  .int pump
+.fi
+
+bQuick = false
+dContainer = container3
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction3
+  mLiquid = @oil
+  .int pump
+.fi
+
+dContainer = container4
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction4
+  mLiquid = @hydrogen
+  .int pump
+.fi
+
+dContainer = container5
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction5
+  mLiquid = @arkycite
+  .int pump
+.fi
+
+dContainer = container6
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction6
+  mLiquid = @nitrogen
+  .int pump
+.fi
+
+dContainer = container7
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction7
+  mLiquid = @slag
+  .int pump
+.fi
+
+dContainer = container8
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction8
+  mLiquid = @hydrogen
+  .int pump
+.fi
+
+dContainer = container9
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction9
+  mLiquid = @water
+  .int pump
+.fi
+
+dContainer = container10
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction10
+  mLiquid = @gallium
+  .int pump
+.fi
+
+dContainer = container11
+nLiquid = dContainer.@totalLiquids
+.if nLiquid < nMin
+  dJunction = junction11
+  mLiquid = @neoplasm
+  .int pump
+.fi
+
+end
+
+
+.label pump
+
+.if mLiquid != pump_mLiquid
+  control enabled junction1 false
+  control enabled junction2 false
+  control enabled junction3 false
+  control enabled junction4 false
+  control enabled junction5 false
+  control enabled junction6 false
+  control enabled junction7 false
+  control enabled junction8 false
+  control enabled junction9 false
+  control enabled junction10 false
+  control enabled junction11 false
+  pump_mLiquid = mLiquid
+.fi
+
+control config source1 mLiquid
+
+.if bQuick == false
+  .do
+    nLiquid12 = container12.mLiquid
+    bEnabledLiquid12 = nLiquid12 < 1
+    control enabled incinerator1 bEnabledLiquid12
+    control enabled incinerator2 bEnabledLiquid12
+    control enabled incinerator3 bEnabledLiquid12
+    nLiquid13 = container13.mLiquid
+    bEnabledLiquid13 = nLiquid13 < 1
+    control enabled incinerator4 bEnabledLiquid13
+    control enabled incinerator5 bEnabledLiquid13
+    control enabled incinerator6 bEnabledLiquid13
+    nLiquid14 = container14.mLiquid
+    bEnabledLiquid14 = nLiquid14 < 1
+    control enabled incinerator7 bEnabledLiquid14
+    control enabled incinerator8 bEnabledLiquid14
+    control enabled incinerator9 bEnabledLiquid14
+    nLiquid15 = container15.mLiquid
+    bEnabledLiquid15 = nLiquid15 < 1
+    control enabled incinerator10 bEnabledLiquid15
+    control enabled incinerator11 bEnabledLiquid15
+
+    nLiquidMin1 = nLiquid12 min nLiquid13
+    nLiquidMin2 = nLiquid14 min nLiquid15
+    nLiquidMin = nLiquidMin1 min nLiquidMin2
+  .until nLiquidMin > 5
+.fi
+
+control enabled dJunction true
+
+nStart = @time
+.do
+  nLiquid = dContainer.@totalLiquids
+  .break nLiquid > nMax
+  nElapsed = @time - nStart
+.until nElapsed > nWait
+
+.reti pump

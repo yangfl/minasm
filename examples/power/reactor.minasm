@@ -1,0 +1,42 @@
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    i = 0
+    .do
+      dBlock = %i
+      i += 1
+
+      mBlock = dBlock.@type
+      .if mBlock == @thorium-reactor
+        control enabled dBlock false
+      .fi
+    .when i < @links
+    end
+  .fi
+.fi
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+
+  nCryofluid = dBlock.@cryofluid
+  .continue nCryofluid === null
+
+  .do
+    .break nCryofluid < 20
+    nThorium = dBlock.@thorium
+    .break nThorium < 28
+
+    # nCapacity = dBlock.@powerNetCapacity
+    # nStored = dBlock.@powerNetStored
+    # nRatio = nStored / nCapacity
+    # .break nRatio > 1
+
+    control enabled dBlock true
+    jump next
+  .until
+
+  control enabled dBlock false
+next:
+.when i < @links

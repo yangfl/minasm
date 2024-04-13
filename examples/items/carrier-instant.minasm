@@ -1,0 +1,103 @@
+printflush message1
+print "by：[orange]awa[]\n[purple]量子传输[]"
+
+mUnit = @mega
+
+nUnitFlag = @thisy * @mapw
+nUnitFlag += @thisx
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    print "\n[scarlet]已关闭[]"
+    end
+  .fi
+.fi
+
+.int bindOne
+.if @unit === null
+  print "\n[orange]无可用mega[]"
+  end
+.fi
+
+yDetect = @thisy - 1
+ucontrol getBlock @thisx yDetect mBlockCur dBlock
+
+.if dBlock !== null
+  .if mBlockCur != mBlock
+    mBlock = mBlockCur
+    nBlockSize = dBlock.@size
+    nBlockSizeOffset = nBlockSize - 1
+    nBlockSizeOffset /= 2
+  .fi
+.fi
+
+.if mBlock === null
+  print "\n[orange]未设置方块，请在处理器下手动建一个[]"
+  end
+.fi
+
+print "\n[green]方块：[]"
+print mBlock
+
+mPayload = @unit.@payloadType
+.if mPayload !== null
+  xTarget = deconstructor1.@x
+  yTarget = deconstructor1.@y
+  ucontrol move xTarget yTarget
+  ucontrol within xTarget yTarget 2.5 bWithin
+  .if bWithin
+    ucontrol payDrop
+  .fi
+  end
+.fi
+
+xBlock = @thisx + nBlockSizeOffset
+yBlock = yDetect - nBlockSizeOffset
+
+.if dBlock === null
+  ucontrol approach xBlock yBlock 5
+  ucontrol build xBlock yBlock mBlock
+.else
+  ucontrol move xBlock yBlock
+  ucontrol within xBlock yBlock 0.5 bWithin
+  .if bWithin
+    ucontrol payTake block
+  .fi
+.fi
+
+end
+
+
+.label bindOne mUnit nUnitFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUnitFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  ubind mUnit
+  .break @unit === null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+bindOne_rebind:
+    .do
+      ubind mUnit
+      .break @unit === null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUnitFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne

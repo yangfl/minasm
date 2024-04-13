@@ -1,0 +1,176 @@
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    control enabled switch1 true
+    i = 0
+    .do
+      dDisplay = %i
+      i += 1
+      draw clear 255 255 255
+      drawflush dDisplay
+    .when i < @links
+    end
+  .fi
+.fi
+
+nStroke = cell1[4]
+.if nStroke <= 0
+  nStroke = 2
+.fi
+nStrokeSizeHalf = nStroke / 64
+bColor = cell1[5]
+.if bColor
+  R = cell1[0]
+  G = cell1[1]
+  B = cell1[2]
+  rA = cell1[3]
+  cell1[5] = false
+.fi
+A = 255 - rA
+
+radar player ally any distance @this 1 uPlayer
+.if uNewPlayer !== null
+  .if uPlayer != uNewPlayer
+    bDrawing = false
+    uPlayer = uNewPlayer
+  .fi
+.elif uPlayer === null
+  end
+.fi
+
+bShooting = uPlayer.@shooting
+.if bShooting == false
+  bDrawing = false
+  end
+.fi
+
+xShoot = uPlayer.@shootX
+yShoot = uPlayer.@shootY
+
+.if bDrawing
+  dxShoot = xPrevShoot - xShoot
+  dyShoot = yPrevShoot - yShoot
+  dxyShoot = dxShoot / dyShoot
+.fi
+
+i = 0
+.while i < @links
+  dDisplay = %i
+  i += 1
+
+  nSize = dDisplay.@size
+  .continue nSize < 3
+  nDisplaySize = nSize - 0.5
+  nDisplaySizeHalf = nDisplaySize / 2
+  nBoundingSizeHalf = nDisplaySizeHalf + nStrokeSizeHalf
+  xDisplay = dDisplay.@x
+  yDisplay = dDisplay.@y
+
+  x = xShoot - xDisplay
+  y = yShoot - yDisplay
+
+  .if bDrawing == false
+    absX = abs x
+    .continue absX >= nBoundingSizeHalf
+    absY = abs y
+    .continue absY >= nBoundingSizeHalf
+
+    x += nDisplaySizeHalf
+    x *= 32
+    y += nDisplaySizeHalf
+    y *= 32
+
+    nStrokeHalf = nStroke / 2
+
+    draw color R G B A
+    draw poly x y 100 nStrokeHalf
+    drawflush dDisplay
+  .else
+    xPrev = xPrevShoot - xDisplay
+    yPrev = yPrevShoot - yDisplay
+
+    xMin = x min xPrev
+    .continue xMin >= nBoundingSizeHalf
+    yMin = y min yPrev
+    .continue yMin >= nBoundingSizeHalf
+
+    nBoundingSizeHalfNeg = 0 - nBoundingSizeHalf
+    xMax = x max xPrev
+    .continue xMax <= nBoundingSizeHalfNeg
+    yMax = y max yPrev
+    .continue yMax <= nBoundingSizeHalfNeg
+
+    .do
+      absX = abs x
+      .if absX <= nBoundingSizeHalf
+        absY = abs y
+        .break absY <= nBoundingSizeHalf
+      .fi
+
+      absXPrev = abs xPrev
+      .if absXPrev <= nBoundingSizeHalf
+        absYPrev = abs yPrev
+        .break absYPrev <= nBoundingSizeHalf
+      .fi
+
+      ux = nBoundingSizeHalf - x
+      vx = nBoundingSizeHalfNeg - x
+
+      # left bottom - right top
+      fCur = x - y
+      fPrev = xPrev - yPrev
+      fCurPrev = fCur * fPrev
+      .if fCurPrev <= 0
+        uy = nBoundingSizeHalf - y
+        uy *= dxyShoot
+        u = ux - uy
+
+        vy = nBoundingSizeHalfNeg - y
+        vy *= dxyShoot
+        v = vx - vy
+
+        v *= u
+        .break v <= 0
+      .fi
+
+      # left top - right bottom
+      fCur = x + y
+      fPrev = xPrev + yPrev
+      fCurPrev = fCur * fPrev
+      .if fCurPrev <= 0
+        uy = nBoundingSizeHalfNeg - y
+        uy *= dxyShoot
+        u = ux - uy
+
+        vy = nBoundingSizeHalf - y
+        vy *= dxyShoot
+        v = vx - vy
+
+        v *= u
+        .break v <= 0
+      .fi
+
+      jump drawNext
+    .until
+
+    x += nDisplaySizeHalf
+    x *= 32
+    y += nDisplaySizeHalf
+    y *= 32
+
+    xPrev += nDisplaySizeHalf
+    xPrev *= 32
+    yPrev += nDisplaySizeHalf
+    yPrev *= 32
+
+    draw color R G B A
+    draw stroke nStroke
+    draw line x y xPrev yPrev
+    drawflush dDisplay
+drawNext:
+  .fi
+.done
+
+bDrawing = true
+xPrevShoot = xShoot
+yPrevShoot = yShoot

@@ -1,0 +1,24 @@
+enum Op {
+RECT,
+OFFSET_XPOS,
+OFFSET_XNEG,
+R, G, B, X, Y
+}
+
+p:1
+pad:8
+ins5op:3::Op
+ins5arg2:4
+ins5arg1:4
+ins4op:3::Op
+ins4arg2:4
+ins4arg1:4
+ins3op:3::Op
+ins3arg2:4
+ins3arg1:4
+ins2op:3::Op
+ins2arg2:4
+ins2arg1:4
+ins1op:3::Op
+ins1arg2:4
+ins1arg1:4

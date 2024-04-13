@@ -1,0 +1,84 @@
+print "渲染刷新"
+printflush message1
+
+h = 0
+.do
+  v = 25 * h
+  v += 39
+  nDisplayBase = v // 176
+  nDisplayBase *= 3
+  v %= 176
+  v1 = v - 13
+  i0 = 19 * h
+  bPoint = true
+  .do
+    .break h == 3
+    .break h == 9
+    bPoint = h == 15
+  .until
+
+  w = 0
+  .do
+    u = 25 * w
+    u += 39
+    nDisplay = u // 176
+    u %= 176
+    u1 = u - 13
+
+    nDisplay += nDisplayBase
+    dDisplay = %nDisplay
+
+    draw color 86 86 102 255
+    draw rect u1 v1 26 26
+
+    draw color 255 255 255 255
+
+    .if w == 0
+      draw rect u v 13 1
+    .elif w == 18
+      draw rect u1 v 13 1
+    .else
+      draw rect u1 v 26 1
+    .fi
+
+    .if h == 0
+      draw rect u v 1 13
+    .elif h == 18
+      draw rect u v1 1 13
+    .else
+      draw rect u v1 1 26
+    .fi
+
+    i = i0 + w
+
+    nState = bank1[i]
+    nState2 = nState * 2
+    .case nState2
+      jump nState0 bPoint
+      noop
+      draw color 0 0 0 255
+      .stop
+      draw color 255 255 255 255
+      .stop
+      draw color 0 255 0 255
+    .esac
+
+    draw poly u v 64 10
+    .if 0
+nState0:
+      .do
+        .break w == 3
+        .break w == 9
+        .break w == 15
+        jump nState0End
+      .until
+      draw poly u v 64 3
+nState0End:
+    .fi
+
+    drawflush dDisplay
+
+    w += 1
+  .when w < 19
+  h += 1
+.when h < 19
