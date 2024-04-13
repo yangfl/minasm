@@ -1,0 +1,14 @@
+body {
+  --background-color: rgba(0, 0, 0, 0);
+  --fill: white;
+  --color: black;
+  margin: .5em;
+  background-color: var(--background-color);
+  color: var(--color);
+}
+
+.dark-mode {
+  --background-color: rgba(0, 0, 0, .75);
+  --fill: #404040;
+  --color: white;
+}

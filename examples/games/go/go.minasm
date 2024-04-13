@@ -1,0 +1,362 @@
+print "主线程"
+printflush message1
+
+bInited = bank1[511]
+.if bInited == false
+  bank1[511] = true
+  bWhiteMoving = false
+  checkGo_flag = 0
+  .stack bank3 512
+.fi
+
+.if bWhiteMoving
+  dPlayer = arc2
+  dPlayerIndicator = sorter2
+  control config sorter1 @blast-compound
+.else
+  dPlayer = arc1
+  dPlayerIndicator = sorter1
+  control config sorter2 @blast-compound
+.fi
+
+bEnd = switch1.@enabled
+.if bEnd
+  control enabled switch1 false
+
+  end bActed == false
+  bActed = false
+
+  control config dPlayerIndicator @blast-compound
+
+  bank2[iPrev] = -1
+  nState = bWhiteMoving + 1
+  bank1[iPrev] = nState
+  bWhiteMoving === false
+
+  w = iPrev % 19
+  h = iPrev // 19
+  .int drawGo
+
+  wPrev = w
+  nState = 0
+  i = iPrev
+  .int checkOrKillGo
+
+  .if wPrev > 0
+    i = iPrev - 1
+    nStateI = bank1[i]
+    .if nStateI != 0
+      .int checkOrKillGo
+    .fi
+  .fi
+
+  .if wPrev < 18
+    i = iPrev + 1
+    nStateI = bank1[i]
+    .if nStateI != 0
+      .int checkOrKillGo
+    .fi
+  .fi
+
+  .if iPrev >= 19
+    i = iPrev - 19
+    nStateI = bank1[i]
+    .if nStateI != 0
+      .int checkOrKillGo
+    .fi
+  .fi
+
+  .if iPrev < 342
+    i = iPrev + 19
+    nStateI = bank1[i]
+    .if nStateI != 0
+      .int checkOrKillGo
+    .fi
+  .fi
+
+  end
+.fi
+
+control config dPlayerIndicator @plastanium
+bShooting = dPlayer.@shooting
+.if bShooting
+  xShoot = dPlayer.@shootX
+  yShoot = dPlayer.@shootY
+
+  xBase = display1.@x
+  yBase = display1.@y
+  xBase -= 3
+  yBase -= 3
+
+  end xShoot < xBase
+  end yShoot < yBase
+
+  x = xShoot - xBase
+  y = yShoot - yBase
+
+  column = x // 6
+  row = y // 6
+  end column >= 3
+  end row >= 3
+
+  nDisplay = 3 * row
+  nDisplay += column
+  dDisplay = %nDisplay
+
+  xDisplay = dDisplay.@x
+  yDisplay = dDisplay.@y
+
+  x = xShoot - xDisplay
+  y = yShoot - yDisplay
+
+  absX = abs x
+  end absX > 2.75
+  absY = abs y
+  end absY > 2.75
+
+  u = 32 * x
+  v = 32 * y
+
+  uGlobal = 176 * column
+  vGlobal = 176 * row
+  uGlobal += u
+  vGlobal += v
+  uGlobal += 61
+  vGlobal += 61
+
+  wNext = uGlobal // 25
+  end wNext < 0
+  end wNext >= 19
+  hNext = vGlobal // 25
+  end hNext < 0
+  end hNext >= 19
+
+  i = 19 * hNext
+  i += wNext
+  nStateExist = bank1[i]
+  end nStateExist != 0
+
+  .if bActed
+    bank1[iPrev] = 0
+
+    w = iPrev % 19
+    h = iPrev // 19
+    nState = 0
+    .int drawGo
+  .fi
+
+  bank1[i] = 3
+
+  w = wNext
+  h = hNext
+  nState = 3
+  .int drawGo
+
+  iPrev = i
+  bActed = true
+.fi
+
+end
+
+
+.label drawGo w h nState
+.if nState == 0
+  drawGo_bPoint = false
+  .do
+    .break h == 3
+    .break h == 9
+    .break h == 15
+    jump drawGo_bPoint_false
+  .until
+  .do
+    .break w == 3
+    .break w == 9
+    .break w == 15
+    jump drawGo_bPoint_false
+  .until
+  drawGo_bPoint = true
+.label drawGo_bPoint_false
+.fi
+
+drawGo_nState2 = nState * 2
+
+drawGo_u = 25 * w
+drawGo_v = 25 * h
+drawGo_u += 39
+drawGo_v += 39
+
+drawGo_nDisplayBase = drawGo_v // 176
+drawGo_nDisplayBase *= 3
+drawGo_nDisplay = drawGo_u // 176
+drawGo_nDisplay += drawGo_nDisplayBase
+drawGo_dDisplay = %drawGo_nDisplay
+
+drawGo_u %= 176
+drawGo_v %= 176
+
+drawGo_u1 = drawGo_u - 13
+drawGo_v1 = drawGo_v - 13
+
+.label drawGo_private
+draw color 86 86 102 255
+draw rect drawGo_u1 drawGo_v1 26 26
+
+draw color 255 255 255 255
+
+.if w == 0
+  draw rect drawGo_u drawGo_v 13 1
+.elif w == 18
+  draw rect drawGo_u1 drawGo_v 13 1
+.else
+  draw rect drawGo_u1 drawGo_v 26 1
+.fi
+
+.if h == 0
+  draw rect drawGo_u drawGo_v 1 13
+.elif h == 18
+  draw rect drawGo_u drawGo_v1 1 13
+.else
+  draw rect drawGo_u drawGo_v1 1 26
+.fi
+
+.case drawGo_nState2
+  jump drawGo_nState0 drawGo_bPoint
+  jump drawGo_nState0End
+  draw color 0 0 0 255
+  .stop
+  draw color 255 255 255 255
+  .stop
+  draw color 0 255 0 255
+.esac
+
+.if
+  draw poly drawGo_u drawGo_v 64 10
+.else
+.label drawGo_nState0
+  draw poly drawGo_u drawGo_v 64 3
+.label drawGo_nState0End
+.fi
+
+drawflush drawGo_dDisplay
+.reti drawGo
+
+
+.label checkOrKillGo i nStateI
+checkGo_flag += 1
+iQi = -1
+.call checkGo
+
+.if iQi < 0
+  .call killGo
+.fi
+.reti checkOrKillGo
+
+
+.fun checkGo i nStateI
+# checkGo_flag += 1
+# iQi = -1
+
+checkGo_flagI = bank4[i]
+jump checkGo_ret checkGo_flagI == checkGo_flag
+bank4[i] = checkGo_flag
+
+checkGo_nStateI = bank1[i]
+.if checkGo_nStateI == 0
+  iQi = i
+.label checkGo_ret
+  .ret
+.fi
+jump checkGo_ret checkGo_nStateI != nStateI
+
+checkGo_iTarget = bank2[i]
+.if checkGo_iTarget >= 0
+  checkGo_nStateTarget = bank1[checkGo_iTarget]
+  .if checkGo_nStateTarget == 0
+    iQi = checkGo_iTarget
+    .ret
+  .fi
+  bank2[i] = -1
+.fi
+
+checkGo_w = i % 19
+.if checkGo_w > 0
+  .push i
+  i -= 1
+  .call checkGo
+  .pop i
+  jump checkGo_end iQi >= 0
+.fi
+
+checkGo_w = i % 19
+.if checkGo_w < 18
+  .push i
+  i += 1
+  .call checkGo
+  .pop i
+  jump checkGo_end iQi >= 0
+.fi
+
+.if i >= 19
+  .push i
+  i -= 19
+  .call checkGo
+  .pop i
+  jump checkGo_end iQi >= 0
+.fi
+
+.if i < 342
+  .push i
+  i += 19
+  .call checkGo
+  .pop i
+  jump checkGo_end iQi >= 0
+.fi
+
+.ret
+
+.label checkGo_end
+bank2[i] = iQi
+.ret
+
+
+.fun killGo i nStateI
+killGo_nStateI = bank1[i]
+jump killGo_ret killGo_nStateI != nStateI
+bank1[i] = 0
+
+w = i % 19
+h = i // 19
+.int drawGo
+
+killGo_w = i % 19
+.if killGo_w > 0
+  .push i
+  i -= 1
+  .call killGo
+  .pop i
+.fi
+
+killGo_w = i % 19
+.if killGo_w < 18
+  .push i
+  i += 1
+  .call killGo
+  .pop i
+.fi
+
+.if i >= 19
+  .push i
+  i -= 19
+  .call killGo
+  .pop i
+.fi
+
+.if i < 342
+  .push i
+  i += 19
+  .call killGo
+  .pop i
+.fi
+
+.label killGo_ret
+.ret

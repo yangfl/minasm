@@ -1,0 +1,66 @@
+nSize = display1.@size
+nPixel = nSize - 0.5
+nPixel *= 32
+nPixelHalf = nPixel / 2
+
+nHeight = nPixel / 3
+nHeight2 = nHeight * 2
+draw stroke 2
+draw color 0 0 255 255
+draw rect 0 0 nPixel nPixel
+draw color 0 255 0 255
+draw rect 0 nHeight nPixel nHeight2
+draw color 255 0 0 255
+draw rect 0 nHeight2 nPixel nHeight
+draw color 255 255 255 255
+draw line xB 0 xB nHeight
+draw line xG nHeight xG nHeight2
+draw line xR nHeight2 xR nPixel
+drawflush display1
+
+nRatio = 255 / nPixel
+nSizeHalf = nSize / 2
+xDisplay = display1.@x
+yDisplay = display1.@y
+
+radar player ally any distance @this 1 uNewPlayer
+.if uNewPlayer !== null
+  uPlayer = uNewPlayer
+.elif uPlayer === null
+  end
+.fi
+
+bShooting = uPlayer.@shooting
+end bShooting == false
+
+xShoot = uPlayer.@shootX
+x = xShoot - xDisplay
+absX = abs x
+end absX >= nSizeHalf
+yShoot = uPlayer.@shootY
+y = yShoot - yDisplay
+absY = abs y
+end absY >= nSizeHalf
+
+x *= 32
+x += nPixelHalf
+x = x min nPixel
+x = x max 0
+y *= 32
+y += nPixelHalf
+
+.if y < nHeight
+  xB = x
+  B = xB * nRatio
+  cell1[2] = B
+.elif y < nHeight2
+  xG = x
+  G = xG * nRatio
+  cell1[1] = G
+.else
+  xR = x
+  R = xR * nRatio
+  cell1[0] = R
+.fi
+# cell1[3] = A
+cell1[5] = true

@@ -1,0 +1,171 @@
+print "by：[orange]awa[]\n用两个mega，互相搬运容器\n进入电弧选择目标容器位置，注意点正中间！！！\n屑逻辑，出错了自行修正"
+printflush message1
+
+mUnit = @mega
+
+nUnitFlag1 = @thisy * @mapw
+nUnitFlag1 += @thisx
+nUnitFlag2 = @maph * @mapw
+nUnitFlag2 += nUnitFlag1
+
+mTarget = @container
+nTargetSize = 2
+nOffset = nTargetSize - 1
+nOffset /= 2
+xTarget = @thisx + nOffset
+yTarget = @thisy + nOffset
+yTarget += 2
+bToPort1 = true
+bToPort2 = false
+
+.while
+  .do
+    .while
+      sensor bShooting arc1 @shooting
+      .if bShooting
+        sensor xPort arc1 @shootX
+        sensor yPort arc1 @shootY
+        print "[green]当前坐标："
+        print xPort
+        print "，"
+        print yPort
+        printflush message1
+        .break
+      .fi
+      .break xPort != 0
+      print "[red]未设置坐标"
+      printflush message1
+    .done
+
+    .if switch1 !== null
+      bSwitch = switch1.@enabled
+      .continue bSwitch == false
+    .fi
+  .until
+
+  nUnitFlag = nUnitFlag1
+  .int bindOne
+  bToPort = bToPort1
+  nCooldown = nCooldown1
+  .int carrier
+  bToPort1 = bToPort
+  nCooldown1 = nCooldown
+
+  nUnitFlag = nUnitFlag2
+  .int bindOne
+  bToPort = bToPort2
+  nCooldown = nCooldown2
+  .int carrier
+  bToPort2 = bToPort
+  nCooldown2 = nCooldown
+.done
+
+
+.label bindOne mUnit nUnitFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUnitFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  ubind mUnit
+  .break @unit === null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+bindOne_rebind:
+    .do
+      ubind mUnit
+      .break @unit === null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUnitFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne
+
+
+.label carrier @unit bToPort nCooldown xTarget yTarget xPort yPort
+mPayload = @unit.@payloadType
+
+.if bToPort == false
+  xSource = xPort
+  ySource = yPort
+  xDestination = xTarget
+  yDestination = yTarget
+.else
+  xSource = xTarget
+  ySource = yTarget
+  xDestination = xPort
+  yDestination = yPort
+.fi
+
+.if mPayload === null
+  # go to source and take
+  .if nCooldown > 0
+    ucontrol approach xSource ySource 12
+    nCooldown -= 1
+  .elif nCooldown < -4
+    nCooldown = 8
+  .else
+    ucontrol move xSource ySource
+    ucontrol within xSource ySource 12 bWithin
+    .if bWithin
+      ucontrol within xSource ySource 0.5 bWithin
+      .if bWithin
+        # ucontrol getBlock xSource ySource mBlock dBlock
+        # .if mBlock == @air
+        #   ucontrol build xSource ySource mTarget
+        # .fi
+        ucontrol payTake false
+      .fi
+      mPayload = @unit.@payloadType
+      .if mPayload == mTarget
+        nCooldown = 0
+      .else
+        nCooldown -= 1
+      .fi
+    .fi
+  .fi
+.elif mPayload != mTarget
+  # drop unwanted
+  ucontrol approach xSource ySource 48
+  ucontrol payDrop
+  nCooldown = 0
+.else
+  # go to destination and drop
+  .if nCooldown > 0
+    ucontrol approach xDestination yDestination 12
+    nCooldown -= 1
+  .elif nCooldown < -4
+    nCooldown = 8
+  .else
+    ucontrol move xDestination yDestination
+    ucontrol within xDestination yDestination 12 bWithin
+    .if bWithin
+      ucontrol within xDestination yDestination 0.5 bWithin
+      .if bWithin
+        ucontrol payDrop
+      .fi
+      mPayload = @unit.@payloadType
+      .if mPayload === null
+        bToPort = bToPort == false
+        nCooldown = 16
+      .else
+        nCooldown -= 1
+      .fi
+    .fi
+  .fi
+.fi
+
+.reti carrier

@@ -1,0 +1,17 @@
+dBlock = %i
+i += 1
+i %= @links
+
+nCryofluid = dBlock.@cryofluid
+end nCryofluid === null
+
+.do
+  .break nCryofluid < 20
+  nThorium = dBlock.@thorium
+  .break nThorium < 28
+
+  control enabled dBlock true
+  end
+.until
+
+control enabled dBlock false

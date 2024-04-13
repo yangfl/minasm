@@ -1,0 +1,153 @@
+nMinItem = 950
+nMinPower = 0.3
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  jump action bSwitch == false
+.fi
+
+# find core
+iBlock = 0
+.do
+  dCore = %iBlock
+  iBlock += 1
+  nCapacity = dCore.@itemCapacity
+  jump coreFound nCapacity >= 4000
+.when iBlock < @links
+
+iUnit = 0
+jump detectCore @unit
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+detectCore:
+    ulocate building core false null xCore yCore bCoreFound dCore
+    jump coreFound bCoreFound
+  .fi
+.when iUnit < @unitCount
+
+end
+
+coreFound:
+nFlagReg = 0
+bSwitch = true
+
+action:
+i = 0
+.do
+  dBlock = %i
+  i += 1
+
+  .continue dBlock == dCore
+  nCapacity = dBlock.@itemCapacity
+  .continue nCapacity == 0
+
+  .if bSwitch
+    nTotalItems = dBlock.@totalItems
+
+    .if nTotalItems > 0
+      nPowerNetCapacity = dBlock.@powerNetCapacity
+      .if nPowerNetCapacity > 0
+        nPowerNetStored = dBlock.@powerNetStored
+        nPower = nPowerNetStored / nPowerNetCapacity
+        .if nPower < nMinPower
+          nFlag = 1 << @itemCount
+          nFlagReg |= nFlag
+          jump disableBlock
+        .fi
+      .fi
+
+      iItem = 0
+      .do
+        lookup item mItem iItem
+        nItem = dBlock.mItem
+        .if nItem > 0
+          nCoreItem = dCore.mItem
+          .if nCoreItem < nMinItem
+            nFlag = 1 << iItem
+            nFlagReg |= nFlag
+            jump disableBlock
+          .fi
+        .fi
+
+        iItem += 1
+      .when iItem < @itemCount
+    .fi
+
+    control enabled dBlock true
+  .else
+disableBlock:
+    control enabled dBlock false
+  .fi
+.when i < @links
+
+# print result
+print "by [orange]awa[]\n核心资源保护\n链接核心及工厂\n"
+.if bSwitch == false
+  print "\n[red]开关被关闭[]"
+.elif nFlagReg
+  iItem = 0
+  .do
+    nFlag = nFlagReg >> iItem
+    nFlag &= 1
+    .if nFlag
+      print "\n[orange]"
+      iItemCase *= 2
+      .case iItemCase
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+        .stop
+        print ""
+      .esac
+      print "不足[]"
+    .fi
+
+    iItem += 1
+  .when iItem <= @itemCount
+.else
+  print "\n[green]正常运行[]"
+.fi
+printflush message1

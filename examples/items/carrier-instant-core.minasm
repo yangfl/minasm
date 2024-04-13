@@ -1,0 +1,195 @@
+.if bInit == false
+  print "光传核心，可串联！"
+  print "(仓库距离不要超过13)"
+  print "1.改一个和其他光传组不同的 flag，设定单位"
+  print "2.母体逻辑 先 连接 近 核心容器，后 连接 远 核心容器"
+  print "3.等看到单位开始执行时，单独复制 无 连接建筑的小处理器即可"
+
+  nFlag = 4444
+  nFlag &= 8191
+
+  .do
+    ubind @zenith
+  .until @unit !== null
+  mUnit = @unit.@type
+
+  nCoreProtect = 50
+  nTakeFromCore = 100
+  nPutToCore = 500
+  nTakeFromRemote = 700
+
+  printflush message1
+  bInit = true
+.fi
+
+bMaster = @links >= 3
+.if switch1
+  bEnabled = switch1.@enabled
+  .if bEnabled == false
+    .if uTarget
+      uTarget = null
+      ucontrol flag 0
+      ucontrol unbind
+    .fi
+    end
+  .fi
+.fi
+
+bDead = uTarget.@dead
+.if bDead
+  uTarget = null
+  uFirstUnit = null
+  .while
+    .do
+      ubind mUnit
+    .until @unit !== null
+
+    nFlagTest = @unit.@flag
+    nFlagTest >>= 40
+    .if nFlagTest == nFlag
+      uTarget = @unit
+      .break
+    .fi
+
+    bFirstDead = uFirstUnit.@dead
+    .if bFirstDead
+      uFirstUnit = @unit
+    .elif uFirstUnit == @unit
+      end bMaster == false
+
+      uFirstUnit = null
+      .while
+        .do
+          ubind mUnit
+        .until @unit !== null
+
+        .do
+          nControlled = @unit.@controlled
+          .if nControlled == @ctrlProcessor
+            .break nFlag != 0
+          .fi
+
+          ucontrol within 0 0 1 0
+          uController = @unit.@controller
+          .break uController != @this
+
+          uTarget = @unit
+
+          nThisFlag = nFlag << 40
+          ucontrol flag nThisFlag
+          jump binded
+        .until
+
+        bFirstDead = uFirstUnit.@dead
+        .if bFirstDead
+          uFirstUnit = @unit
+        .elif uFirstUnit == @unit
+          end
+        .fi
+      .done
+    .fi
+  .done
+binded:
+.fi
+
+ubind uTarget
+ucontrol boost true
+
+iUnitDecoder -= 1
+.if iUnitDecoder <= 0
+  iUnitDecoder = 32
+
+  nUnitFlag = uTarget.@flag
+  nFlagTest = nUnitFlag >> 40
+  .if nFlagTest != nFlag
+    uTarget = null
+    .if bMaster
+      ucontrol flag 0
+      ucontrol unbind
+    .fi
+    end
+  .fi
+
+  .if bMaster
+    d1 = %1
+    x1 = d1.@x
+    y1 = d1.@y
+
+    d2 = %2
+    x2 = d2.@x
+    y2 = d2.@y
+
+    dx = x2 - x1
+    dx += 64
+    dy = y2 - y1
+    dy += 64
+
+    nThisFlag = nFlag << 10
+    nThisFlag |= x1
+    nThisFlag <<= 10
+    nThisFlag |= y1
+    nThisFlag <<= 7
+    nThisFlag |= dx
+    nThisFlag <<= 7
+    nThisFlag |= dy
+    nThisFlag <<= 6
+    nUnitFlag = nThisFlag | 63
+
+    ucontrol flag nUnitFlag
+
+    xm = x1 + x2
+    xm = xm / 2
+    ym = y1 + y2
+    ym = ym / 2
+  .else
+    nThisFlag = nUnitFlag >> 6
+    dy = nThisFlag & 127
+    nThisFlag >>= 7
+    dx = nThisFlag & 127
+    nThisFlag >>= 7
+    y1 = nThisFlag & 1023
+    nThisFlag >>= 10
+    x1 = nThisFlag & 1023
+    nThisFlag >>= 10
+
+    dx -= 64
+    dy -= 64
+    x2 = x1 + dx
+    y2 = y1 + dy
+
+    ucontrol getBlock x1 y1 m1 d1
+    ucontrol getBlock x2 y2 m2 d2
+  .fi
+.fi
+
+.if bMaster
+  ucontrol move xm ym
+.fi
+
+.do
+  mUnitItem = @unit.@firstItem
+  .if mUnitItem !== null
+    nItem2 = d2.mUnitItem
+    .if nItem2 < nPutToCore
+      ucontrol itemDrop d2 9999
+    .else
+      ucontrol itemDrop d1 9999
+    .fi
+  .else
+    lookup item mItem iItem
+    iItem += 1
+    iItem %= @itemCount
+
+    nItem2 = d2.mItem
+
+    .if nItem2 < nTakeFromCore
+      nItem1 = d1.mItem
+      .continue nItem1 < nCoreProtect
+      ucontrol itemTake d1 mItem 9999
+    .elif nItem2 > nTakeFromRemote
+      ucontrol itemTake d2 mItem 9999
+    .else
+      .continue
+    .fi
+  .fi
+.until

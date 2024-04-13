@@ -1,0 +1,191 @@
+.if bInit == false
+  xOut = 150
+  xShieldOut = 160
+  xSourceOut = 170
+  xVoidOut = 180
+
+  xThis = floor @thisx
+  yThis = floor @thisy
+  nThisFlag = yThis * @mapw
+  nThisFlag += xThis
+
+  bInit = true
+.fi
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    ucontrol flag 0
+    ucontrol unbind
+    end
+  .fi
+.fi
+
+jump checkBind
+.while
+  ubind @oct
+checkBind:
+  .do
+    nFlag = @unit.@flag
+    uController = @unit.@controller
+    .if uController == @this
+      .if nFlag != nThisFlag
+        .if nFlag != 0
+          ucontrol flag 0
+          ucontrol unbind
+        .fi
+        .break
+      .fi
+    .else
+      nControlled = @unit.@controlled
+      .if nControlled == @ctrlProcessor
+        .break nFlag != 0
+      .fi
+
+      ucontrol within 0 0 1 0
+      uController = @unit.@controller
+      .break uController != @this
+
+      ucontrol flag nThisFlag
+    .fi
+    jump binded
+  .until
+.done
+binded:
+
+iBlock = 0
+.do
+  dBlock = %iBlock
+  mBlock = dBlock.@type
+  .if mBlock == @payload-void
+    dVoid = dBlock
+    .break
+  .fi
+  iBlock += 1
+.when iBlock < @links
+
+mPayload = @unit.@payloadType
+.if mPayload === null
+  dConveyorIn = driver1
+  .if dConveyorIn
+    xConveyorIn = dConveyorIn.@x
+    yConveyorIn = dConveyorIn.@y
+    .do
+      uController = @unit.@controller
+      end uController != @this
+      ucontrol within xConveyorIn yConveyorIn 1.5 bWithin
+      .if bWithin
+        mConveyorInPayload = dConveyorIn.@payloadType
+        .if mConveyorInPayload
+          ucontrol payTake
+        .fi
+      .else
+        ucontrol move xConveyorIn yConveyorIn
+      .fi
+      mPayload = @unit.@payloadType
+    .until mPayload
+  .else
+    nUnitRange = @unit.@range
+
+    xEnd = xThis + 15
+    yEnd = yThis - 0
+
+    xBlock = xThis + 0
+    .do
+      yBlock = yThis - 8
+      .do
+        .while
+          uController = @unit.@controller
+          end uController != @this
+          ucontrol within xBlock yBlock nUnitRange bWithin
+          .break bWithin
+          ucontrol move xBlock yBlock
+        .done
+        ucontrol getBlock xBlock yBlock mBlock dBlock mFloor
+        .if mBlock == @scrap-wall
+          .while
+            uController = @unit.@controller
+            end uController != @this
+            ucontrol within xBlock yBlock .5 bWithin
+            .break bWithin
+            ucontrol move xBlock yBlock
+          .done
+          ucontrol payTake
+          end
+        .fi
+        yBlock += 1
+      .when yBlock < yEnd
+      xBlock += 1
+    .when xBlock < xEnd
+  .fi
+.elif mPayload == @command-block
+  jump void dVoid
+  jump out
+.else
+  nPayloadSize = mPayload.@size
+  .if nPayloadSize <= 3
+out:
+    dConveyorOut = conveyor1
+    xConveyorOut = dConveyorOut.@x
+    yConveyorOut = dConveyorOut.@y
+
+    .do
+      uController = @unit.@controller
+      end uController != @this
+      ucontrol within xConveyorOut yConveyorOut 1.5 bWithin
+      .if bWithin
+        ucontrol payDrop
+      .else
+        ucontrol move xConveyorOut yConveyorOut
+      .fi
+      mPayload = @unit.@payloadType
+      nPayloadSize = mPayload.@size
+      end nPayloadSize > 3
+    .until mPayload === null
+  .elif mPayload == @large-shield-projector
+    xDrop = xShieldOut
+    jump drop
+  .elif mPayload == @payload-source
+    xDrop = xSourceOut
+    jump drop
+  .elif mPayload == @payload-void
+    xDrop = xVoidOut
+    jump drop
+  .elif dVoid
+void:
+    xVoid = dVoid.@x
+    yVoid = dVoid.@y
+
+    .do
+      uController = @unit.@controller
+      end uController != @this
+      ucontrol within xVoid yVoid 2.5 bWithin
+      .if bWithin
+        ucontrol payDrop
+      .else
+        ucontrol move xVoid yVoid
+      .fi
+      mPayload = @unit.@payloadType
+    .until mPayload === null
+  .else
+    xDrop = xOut
+drop:
+    yDrop = 10
+
+    .do
+      uController = @unit.@controller
+      end uController != @this
+      ucontrol within xDrop yDrop 1 bWithin
+      .if bWithin
+        ucontrol getBlock xDrop yDrop mDropBlock dDropBlock mDropFloor
+        .if dDropBlock === null
+          ucontrol payDrop
+        .fi
+        yDrop += 5
+      .else
+        ucontrol move xDrop yDrop
+      .fi
+      mPayload = @unit.@payloadType
+    .until mPayload === null
+  .fi
+.fi

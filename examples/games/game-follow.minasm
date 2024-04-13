@@ -1,0 +1,26 @@
+jump hint switch1 === null
+bSwitch = switch1.@enabled
+.if bSwitch == false
+hint:
+  print "[orange]打开开关使电弧跟随最近玩家[]"
+  printflush message1
+  end
+.fi
+
+radar player ally any distance arc1 1 uPlayer
+.if uPlayer === null
+  print "[scarlet]无玩家[]"
+  printflush message1
+  end
+.fi
+
+print "[green]当前玩家：[]"
+sName = uPlayer.@name
+print sName
+printflush message1
+
+xShoot = uPlayer.@shootX
+yShoot = uPlayer.@shootY
+bShooting = uPlayer.@shooting
+
+control shoot arc1 xShoot yShoot bShooting

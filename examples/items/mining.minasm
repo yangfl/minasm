@@ -1,0 +1,174 @@
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    uFirst = @unit
+    .do
+      .break @unit === null
+      nFlag = @unit.@flag
+      .if nFlag == 0
+        ucontrol unbind
+      .fi
+      bFirstDead = uFirst.@dead
+      .if bFirstDead
+        uFirst = @unit
+      .fi
+      ubind uType
+    .until @unit == uFirst
+
+    .do
+      bSwitch = switch1.@enabled
+    .until bSwitch
+    end
+  .fi
+.fi
+
+.do
+  ubind @mono
+  nControlled = @unit.@controlled
+  .if nControlled == @ctrlProcessor
+    nFlag = @unit.@flag
+    .continue nFlag != 0
+  .fi
+  ucontrol within 0 0 1 0
+  uController = @unit.@controller
+.until uController == @this
+ucontrol flag 0
+
+bMegaRepair = false
+.if bMegaRepair
+  .if uType == @mega
+    ulocate damaged core false null xDamage yDamage bDamageFound dDamage
+    .if bDamageFound
+      ucontrol target xDamage yDamage true
+      ucontrol approach xDamage yDamage 5
+      end
+    .fi
+  .fi
+.fi
+
+dCore = %4
+.if dCore
+  xCore = dCore.@x
+  yCore = dCore.@y
+.else
+  ulocate building core false null xCore yCore bCoreFound dCore
+.fi
+
+bAuto = switch2.@enabled
+.if bAuto == false
+  mWanted = sorter1.@config
+.else
+  iLoop += 1
+  .if iLoop > 29
+    iLoop = 0
+    mItem = @copper
+    ulocate ore core true mItem xItem yItem bItemFound
+    .int testItem
+
+    mItem = @lead
+    ulocate ore core true mItem xItem yItem bItemFound
+    .int testItem
+
+    .do
+      .break uType == @mega
+      .break uType == @quasar
+      jump sand
+    .until
+
+    mItem = @titanium
+    ulocate ore core true mItem xItem yItem bItemFound
+    .int testItem
+
+    mItem = @beryllium
+    ulocate ore core true mItem xItem yItem bItemFound
+    .int testItem
+sand:
+
+    bSand = switch3.@enabled
+    .if bSand
+      mItem = @sand
+      ulocate ore core true mItem xItem yItem bItemFound
+      .int testItem
+    .fi
+
+    bScrap = switch4.@enabled
+    .if bScrap
+      mItem = @scrap
+      ulocate ore core true mItem xItem yItem bItemFound
+      .int testItem
+    .fi
+
+    .if uType != @mono
+      bCoal = switch5.@enabled
+      .if bCoal
+        mItem = @coal
+        ulocate ore core true mItem xItem yItem bItemFound
+        .int testItem
+      .fi
+    .fi
+
+    control config sorter1 mWanted
+  .fi
+.fi
+end mWanted === null
+
+ulocate ore core true mWanted xOre yOre bOreFound
+.if bOreFound == false
+  mWanted = null
+  end
+.fi
+
+ucontrol boost true
+
+nUnitCapacity = @unit.@itemCapacity
+mUnitItem = @unit.@firstItem
+.do
+  .if mUnitItem
+    .break mUnitItem != mWanted
+  .fi
+  nUnitItems = @unit.@totalItems
+  .break nUnitItems >= nUnitCapacity
+
+  # mining
+  .do
+    xMining = @unit.@mineX
+    .if xMining >= 0
+      .break xMining != xOre
+      yMining = @unit.@mineY
+      .break yMining != yOre
+    .fi
+    jump mineApproach
+  .until
+  ucontrol stop
+
+mineApproach:
+  ucontrol move xOre yOre
+  ucontrol within xOre yOre 9 bWithin
+  .if bWithin
+    ucontrol mine xOre yOre
+  .fi
+  end
+.until
+
+# drop items
+ucontrol stop
+ucontrol itemDrop dCore nUnitCapacity
+ucontrol approach xCore yCore 5
+
+end
+
+
+.label testItem
+.do
+  .break bItemFound == false
+  .if mWanted != mItem
+    .if mWanted
+      testItem_nItem = dCore.mItem
+      testItem_nWanted = dCore.mWanted
+      testItem_nTest = testItem_nWanted * 0.95
+      .break testItem_nItem > testItem_nTest
+    .fi
+    mWanted = mItem
+  .fi
+.until
+.reti testItem

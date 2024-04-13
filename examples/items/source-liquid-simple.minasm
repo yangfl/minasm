@@ -1,0 +1,113 @@
+.if bInit == false
+  nMin = .3333
+  nMax = .6667
+
+  tWait = 0.5
+  tWait *= 1000
+
+  control config source1 null
+  bInit = true
+.fi
+
+.if source1 === null
+  dJunction = null
+  jump wait
+.fi
+
+nLiquid1 = tank1.@totalLiquids
+.if nLiquid1 == 0
+  dJunction = junction1
+  jump wait
+.fi
+
+nLiquid2 = tank2.@totalLiquids
+.if nLiquid2 == 0
+  dJunction = junction2
+  jump wait
+.fi
+
+nLiquid3 = tank3.@totalLiquids
+.if nLiquid3 == 0
+  dJunction = junction3
+  jump wait
+.fi
+
+nLiquid4 = tank4.@totalLiquids
+.if nLiquid4 == 0
+  dJunction = junction4
+  jump wait
+.fi
+
+nLiquidMin12 = nLiquid1 min nLiquid2
+nLiquidMin34 = nLiquid3 min nLiquid4
+nLiquidMin = nLiquidMin12 min nLiquidMin34
+.if nLiquidMin == nLiquid1
+  dTank = tank1
+  dJunction = junction1
+  mLiquid = mLiquid1
+  .int pump
+  mLiquid1 = mLiquid
+.elif nLiquidMin == nLiquid2
+  dTank = tank2
+  dJunction = junction2
+  mLiquid = mLiquid2
+  .int pump
+  mLiquid2 = mLiquid
+.elif nLiquidMin == nLiquid3
+  dTank = tank3
+  dJunction = junction3
+  mLiquid = mLiquid3
+  .int pump
+  mLiquid3 = mLiquid
+.else
+  dTank = tank4
+  dJunction = junction4
+  mLiquid = mLiquid4
+  .int pump
+  mLiquid4 = mLiquid
+.fi
+
+end
+
+
+.label wait dJunction
+control config source1 null
+control enabled junction1 false
+control enabled junction2 false
+control enabled junction3 false
+control enabled junction4 false
+control enabled dJunction true
+wait .5
+end
+
+
+.label pump dTank dJunction mLiquid
+.if mLiquid === null
+  pump_iLiquid = 0
+  .do
+    lookup liquid pump_mLiquid pump_iLiquid
+    pump_iLiquid += 1
+    pump_nLiquid = dTank.pump_mLiquid
+    .if pump_nLiquid > 0
+      mLiquid = pump_mLiquid
+      .break
+    .fi
+  .when pump_iLiquid < @liquidCount
+.fi
+
+pump_mLiquid = source1.@config
+.if pump_mLiquid != mLiquid
+  control config source1 null
+.fi
+
+pump_bEnable1 = dJunction == junction1
+control enabled junction1 pump_bEnable1
+pump_bEnable2 = dJunction == junction2
+control enabled junction2 pump_bEnable2
+pump_bEnable3 = dJunction == junction3
+control enabled junction3 pump_bEnable3
+pump_bEnable4 = dJunction == junction4
+control enabled junction4 pump_bEnable4
+
+control config source1 mLiquid
+.reti pump

@@ -1,0 +1,24 @@
+.stack cell1
+
+op1 = 1
+.call fun
+op2 = 1
+end
+
+.fun fun
+op3 = 1
+.push var
+.int bar
+.pop var
+op4 = 1
+.ret
+
+.label bar
+op5 = 1
+.call baz
+op6 = 1
+.reti bar
+
+.label baz
+op7 = 1
+.retl

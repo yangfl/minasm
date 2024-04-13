@@ -1,0 +1,65 @@
+dContainer = %0
+
+dCore = %1
+nCapacity = dCore.@itemCapacity
+jump coreFound nCapacity >= 300
+
+bCoreDead = dCore.@dead
+.if bCoreDead
+  iUnit = 0
+  jump detectCore @unit !== null
+  .do
+    lookup unit mUnit iUnit
+    iUnit += 1
+    ubind mUnit
+    .if @unit !== null
+  detectCore:
+      ulocate building core false null xCore yCore bCoreFound dCore
+      jump coreFound bCoreFound
+    .fi
+  .when iUnit < @unitCount
+
+  dCore = null
+  end
+coreFound:
+.fi
+
+mMinItem = null
+nMinItem = dContainer.@itemCapacity
+nMinItem /= 2
+iItem = 0
+.do
+  lookup item mItem iItem
+  iItem += 1
+
+  nCoreItem = dCore.mItem
+  .if nCoreItem > 0
+    nItem = dContainer.mItem
+    .if nItem <= nCoreItem
+      .if nItem <= nMinItem
+        mMinItem = mItem
+        nMinItem = nItem
+      .fi
+    .fi
+  .fi
+.when iItem < @itemCount
+
+i = 1
+.do
+  dBlock = %i
+  i += 1
+  .if mMinItem
+    control config dBlock mMinItem
+    control enabled dBlock true
+  .else
+    mBlockType = dBlock.@type
+    .do
+      .break mBlockType == @unloader
+      .break mBlockType == @duct-unloader
+      jump noDisable
+    .until
+    control enabled dBlock false
+noDisable:
+    control config dBlock null
+  .fi
+.when i < @links

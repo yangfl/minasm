@@ -1,0 +1,140 @@
+x = 10
+y = 10
+dx = 10
+dy = dx * 2
+nStroke = 2
+nDigit = 2
+nPadding = nStroke
+
+draw clear 0 0 0
+draw color 255 255 0 255
+draw stroke nStroke
+
+.int drawNumber
+drawflush display1
+
+nNumber += 1
+nNumber %= 100
+end
+
+
+.label drawNumber nNumber nDigit x y dx dy nStroke nPadding
+drawNumber_n = 10 ** nDigit
+drawNumber_n = nNumber % drawNumber_n
+drawNumber_n = floor drawNumber_n
+
+drawNumber_dxi = dx + nPadding
+drawNumber_dxn = drawNumber_dxi * nDigit
+
+drawDigit_nStrokeHalf = nStroke / 2
+drawDigit_dyh = dy / 2
+drawDigit_y1 = y + drawDigit_dyh
+drawDigit_y1d = drawDigit_y1 - drawDigit_nStrokeHalf
+
+drawDigit_nStrokeNeg = 0 - nStroke
+drawDigit_y2 = y + dy
+drawDigit_dyhsh = drawDigit_dyh + drawDigit_nStrokeHalf
+
+.label drawNumber_private x y dx dy nStroke
+drawNumber_save_x = x
+x += drawNumber_dxn
+
+.do
+  drawDigit_i = drawNumber_n % 10
+  drawDigit_i *= 2
+  drawNumber_n //= 10
+
+  x -= drawNumber_dxi
+  drawDigit_x1 = x + dx
+  .int drawDigit_private drawDigit
+.when drawNumber_n != 0
+
+x = drawNumber_save_x
+.reti drawNumber
+
+
+.label drawDigit iDigit x y dx dy nStroke
+jump drawDigit_abcdef iDigit == 0
+
+drawDigit_nStrokeHalf = nStroke / 2
+drawDigit_dyh = dy / 2
+drawDigit_y1 = y + drawDigit_dyh
+drawDigit_y1d = drawDigit_y1 - drawDigit_nStrokeHalf
+jump drawDigit_g iDigit < 0
+
+drawDigit_nStrokeNeg = 0 - nStroke
+drawDigit_x1 = x + dx
+drawDigit_y2 = y + dy
+drawDigit_dyhsh = drawDigit_dyh + drawDigit_nStrokeHalf
+drawDigit_i = iDigit * 2
+
+.if never
+  .label drawDigit_private x y dx dy nStroke
+  # x,y2 --a-- x1,y2
+  #  f           b
+  # x,y1 --g-- x1,y1
+  #  e           c
+  # x,y  --d-- x1,y
+
+  jump drawDigit_g drawDigit_i < 0
+.fi
+
+.case drawDigit_i
+  # 0 abcdef
+drawDigit_abcdef:
+  draw lineRect x y dx dy  # abcdef
+  .reti drawDigit
+  # 1 bc
+drawDigit_bc:
+  draw rect drawDigit_x1 y drawDigit_nStrokeNeg dy  # bc
+  .reti drawDigit
+  # 2 abdeg
+  draw rect x y nStroke drawDigit_dyh  # e
+  jump drawDigit_abdg
+  # 3 abcdg
+  draw rect drawDigit_x1 y drawDigit_nStrokeNeg dy  # bc
+  jump drawDigit_adg
+  # 4 bcfg
+  draw rect drawDigit_x1 y drawDigit_nStrokeNeg dy  # bc
+  jump drawDigit_fg
+  # 5 acdfg
+  draw rect drawDigit_x1 y drawDigit_nStrokeNeg drawDigit_dyh  # c
+  jump drawDigit_adfg
+  # 6 acdefg
+  draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
+  jump drawDigit_cdefg
+  # 7 abc
+  draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
+  jump drawDigit_bc
+  # 8 abcdefg
+  draw rect x drawDigit_y1d dx nStroke  # g
+  jump drawDigit_abcdef
+  # 9 abcdfg
+  draw lineRect x drawDigit_y1d dx drawDigit_dyhsh  # abfg
+  draw rect x y dx nStroke  # d
+.esac
+jump drawDigit_bc
+
+drawDigit_adfg:
+draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
+draw rect x y dx nStroke  # d
+
+drawDigit_fg:
+draw rect x drawDigit_y1 nStroke drawDigit_dyh  # f
+jump drawDigit_g
+
+drawDigit_cdefg:
+draw rect x drawDigit_y1 nStroke drawDigit_dyh  # f
+draw lineRect x y dx drawDigit_dyhsh  # cdeg
+.reti drawDigit
+
+drawDigit_abdg:
+draw rect drawDigit_x1 drawDigit_y1 drawDigit_nStrokeNeg drawDigit_dyh  # b
+
+drawDigit_adg:
+draw rect x drawDigit_y2 dx drawDigit_nStrokeNeg  # a
+draw rect x y dx nStroke  # d
+
+drawDigit_g:
+draw rect x drawDigit_y1d dx nStroke  # g
+.reti drawDigit

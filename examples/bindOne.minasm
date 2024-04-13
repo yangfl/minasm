@@ -1,0 +1,42 @@
+.if bInit == false
+  xThis = floor @thisx
+  yThis = floor @thisy
+  nThisFlag = yThis * @mapw
+  nThisFlag += xThis
+
+  bInit = true
+.fi
+
+jump checkBind
+.while
+  ubind @flare
+checkBind:
+  .do
+    nFlag = @unit.@flag
+    uController = @unit.@controller
+    .if uController == @this
+      .if nFlag != nThisFlag
+        .if nFlag != 0
+          ucontrol flag 0
+          ucontrol unbind
+        .fi
+        .break
+      .fi
+    .else
+      nControlled = @unit.@controlled
+      .if nControlled == @ctrlProcessor
+        .break nFlag != 0
+      .fi
+
+      ucontrol within 0 0 1 0
+      uController = @unit.@controller
+      .break uController != @this
+
+      ucontrol flag nThisFlag
+    .fi
+    jump binded
+  .until
+.done
+binded:
+
+ucontrol move @thisx @thisy

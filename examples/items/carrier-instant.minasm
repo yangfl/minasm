@@ -1,0 +1,208 @@
+.if bInit == false
+  print "无线光传 使用方法"
+  print "1.改一个和其他光传组不同的 flag"
+  print "2.设定单位，分类器选择搬运类型"
+  print "(分类器不设定则搬空容器)"
+  print "3.母体逻辑 先 连接取出容器，后 连接放入容器"
+  print "4.等看到单位开始执行时，单独复制 无 连接建筑的小处理器即可"
+
+  nFlag = 1111
+  nFlag &= 8191
+
+  .do
+    ubind @zenith
+  .until @unit !== null
+  mUnit = @unit.@type
+
+  nOffset = 0
+
+  printflush message1
+  bInit = true
+.fi
+
+bMaster = @links >= 4
+.if switch1
+  bEnabled = switch1.@enabled
+  .if bEnabled == false
+    .if uTarget
+      uTarget = null
+      ucontrol flag 0
+      ucontrol unbind
+    .fi
+    end
+  .fi
+.fi
+
+.if nOffset > 0
+  mItem = sorter1.@config
+  end mItem === null
+  nItemId = mItem.@id
+  nFlag = 8 * nItemId
+  nFlag += nOffset
+.fi
+
+bDead = uTarget.@dead
+.if bDead
+  uTarget = null
+  uFirstUnit = null
+  .while
+    .do
+      ubind mUnit
+    .until @unit !== null
+
+    nFlagTest = @unit.@flag
+    nFlagTest >>= 40
+    .if nFlagTest == nFlag
+      uTarget = @unit
+      .break
+    .fi
+
+    bFirstDead = uFirstUnit.@dead
+    .if bFirstDead
+      uFirstUnit = @unit
+    .elif uFirstUnit == @unit
+      end bMaster == false
+
+      uFirstUnit = null
+      .while
+        .do
+          ubind mUnit
+        .until @unit !== null
+
+        .do
+          nControlled = @unit.@controlled
+          .if nControlled == @ctrlProcessor
+            .break nFlag != 0
+          .fi
+
+          ucontrol within 0 0 1 0
+          uController = @unit.@controller
+          .break uController != @this
+
+          uTarget = @unit
+
+          nThisFlag = nFlag << 40
+          ucontrol flag nThisFlag
+          jump binded
+        .until
+
+        bFirstDead = uFirstUnit.@dead
+        .if bFirstDead
+          uFirstUnit = @unit
+        .elif uFirstUnit == @unit
+          end
+        .fi
+      .done
+    .fi
+  .done
+binded:
+.fi
+
+ubind uTarget
+ucontrol boost true
+
+iUnitDecoder -= 1
+.if iUnitDecoder <= 0
+  iUnitDecoder = 32
+
+  nUnitFlag = uTarget.@flag
+  nFlagTest = nUnitFlag >> 40
+  .if nFlagTest != nFlag
+    uTarget = null
+    .if bMaster
+      ucontrol flag 0
+      ucontrol unbind
+    .fi
+    end
+  .fi
+
+  .if bMaster
+    d1 = %2
+    x1 = d1.@x
+    y1 = d1.@y
+
+    d2 = %3
+    x2 = d2.@x
+    y2 = d2.@y
+
+    dx = x2 - x1
+    dx += 64
+    dy = y2 - y1
+    dy += 64
+
+    mItem = sorter1.@config
+    nItemId = 63
+    .if mItem !== null
+      nItemId = mItem.@id
+    .fi
+
+    nThisFlag = nFlag << 10
+    nThisFlag |= x1
+    nThisFlag <<= 10
+    nThisFlag |= y1
+    nThisFlag <<= 7
+    nThisFlag |= dx
+    nThisFlag <<= 7
+    nThisFlag |= dy
+    nThisFlag <<= 6
+    nUnitFlag = nThisFlag | nItemId
+
+    ucontrol flag nUnitFlag
+
+    xm = x1 + x2
+    xm = xm / 2
+    ym = y1 + y2
+    ym = ym / 2
+  .else
+    nThisFlag = nUnitFlag >> 6
+    dy = nThisFlag & 127
+    nThisFlag >>= 7
+    dx = nThisFlag & 127
+    nThisFlag >>= 7
+    y1 = nThisFlag & 1023
+    nThisFlag >>= 10
+    x1 = nThisFlag & 1023
+    nThisFlag >>= 10
+
+    dx -= 64
+    dy -= 64
+    x2 = x1 + dx
+    y2 = y1 + dy
+
+    ucontrol getBlock x1 y1 m1 d1
+    ucontrol getBlock x2 y2 m2 d2
+
+    nItemId = nUnitFlag & 63
+    lookup item mItem nItemId
+  .fi
+.fi
+
+.if bMaster
+  ucontrol move xm ym
+.fi
+
+.if mItem !== null
+  ucontrol itemTake d1 mItem 9999
+.else
+  iItemFinder -= 1
+  .if iItemFinder <= 0
+    iItemFinder = 16
+
+    nItemMax = 0
+    iItemTest = 0
+    .do
+      lookup item mItemTest iItemTest
+      iItemTest += 1
+
+      nItemTest = d1.mItemTest
+      .if nItemTest > nItemMax
+        nItemMax = nItemTest
+        mItemMax = mItemTest
+      .fi
+    .when iItemTest < @itemCount
+  .fi
+
+  ucontrol itemTake d1 mItemMax 9999
+.fi
+
+ucontrol itemDrop d2 9999

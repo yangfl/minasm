@@ -1,0 +1,182 @@
+print "by：[orange]awa[]\n文明搬运豆，无资源时释放单位"
+printflush message1
+
+.if bInit == false
+  .do
+    ubind @flare
+  .until @unit !== null
+  mUnit = @unit.@type
+  mItem = @titanium
+  #mItem = null
+  mItem2 = null
+  mItem3 = null
+  mItem4 = null
+  nThreshold = 5
+
+  xThis = floor @thisx
+  yThis = floor @thisy
+  nThisFlag = yThis * @mapw
+  nThisFlag += xThis
+
+  bInit = true
+.fi
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    ucontrol flag 0
+    ucontrol unbind
+    end
+  .fi
+.fi
+
+# read preset
+.if mItem !== null
+  .case iItem2
+    mItemCur = mItem2
+    .stop
+    mItemCur = mItem3
+    .stop
+    mItemCur = mItem4
+    .stop
+    mItemCur = null
+  .esac
+  .if mItemCur === null
+    mItemCur = mItem
+    iItem2 = 0
+  .else
+    iItem2 += 2
+  .fi
+.fi
+
+bUsed = false
+iTarget = 0
+.while iTarget < @links
+  # read config
+  .if mItemCur !== null
+    mWanted = mItemCur
+  .else
+    .do
+      mWanted = sorter1.@config
+    .when mWanted === null
+  .fi
+
+  # get link
+  dTarget = %iTarget
+  iTarget += 1
+  .int tryCarrier
+  bUsed ||= tryCarrier_bOk
+.done
+
+.if bUsed == false
+  .if bLastUsed
+    ucontrol flag 0
+    ucontrol unbind
+  .fi
+.fi
+bLastUsed = bUsed
+
+end
+
+
+.label tryCarrier dTarget mWanted nThreshold
+tryCarrier_bOk = false
+nTargetCapacity = dTarget.@itemCapacity
+.if nTargetCapacity >= 10
+  .while
+    nTargetItems = dTarget.mWanted
+    nTargetItems += nThreshold
+    .break nTargetItems >= nTargetCapacity
+
+    .if dCore !== null
+      bCoreDead = dCore.@dead
+      .if bCoreDead
+        dCore = null
+      .else
+        nCoreItems = dCore.mWanted
+        .break nCoreItems == 0
+      .fi
+    .fi
+
+    bTargetDead = dTarget.@dead
+    .break bTargetDead
+
+    .int bindOne
+    .break @unit === null
+    ucontrol boost true
+
+    .int carrier
+    .if carrier_bOk
+      tryCarrier_bOk = true
+      .break
+    .fi
+  .done
+.fi
+.reti tryCarrier
+
+
+.label bindOne mUnit nThisFlag
+.while
+  .do
+    bindOne_nFlag = @unit.@flag
+    bindOne_uController = @unit.@controller
+    .if bindOne_uController == @this
+      .if bindOne_nFlag != nThisFlag
+        .if bindOne_nFlag != 0
+          ucontrol flag 0
+          ucontrol unbind
+        .fi
+        .break
+      .fi
+    .else
+      bindOne_nControlled = @unit.@controlled
+      .if bindOne_nControlled == @ctrlProcessor
+        .break bindOne_nFlag != 0
+      .fi
+
+      ucontrol within 0 0 1 0
+      bindOne_uController = @unit.@controller
+      .break bindOne_uController != @this
+
+      ucontrol flag nThisFlag
+    .fi
+    .reti bindOne
+  .until
+
+  ubind mUnit
+.done
+
+
+.label carrier @unit dTarget mWanted
+carrier_bOk = false
+carrier_mUnitItem = @unit.@firstItem
+.if carrier_mUnitItem != mWanted
+  # move to core
+  ulocate building core false 0 carrier_xCore carrier_yCore carrier_bCoreFound dCore
+  ucontrol approach carrier_xCore carrier_yCore 5
+
+  # drop unwanted
+  carrier_mUnitItem = @unit.@firstItem
+  .if carrier_mUnitItem !== null
+    .if carrier_mUnitItem != mWanted
+      ucontrol itemDrop dCore 999
+    .fi
+  .fi
+
+  # take all
+  ucontrol itemTake dCore mWanted 999
+  carrier_tTakeItem = @time
+.else
+  # drop to target
+  carrier_xTarget = dTarget.@x
+  carrier_yTarget = dTarget.@y
+  ucontrol approach carrier_xTarget carrier_yTarget 5
+  ucontrol itemDrop dTarget 999
+
+  # test drop
+  carrier_tDuration = @time - carrier_tTakeItem
+  .if carrier_tDuration >= 1500
+    ucontrol within carrier_xTarget carrier_yTarget 6 carrier_bOk
+  .fi
+.fi
+.reti carrier

@@ -1,0 +1,126 @@
+bSwitch = switch1.@enabled
+end bSwitch == false
+
+nUnitFlag = @thisy * @mapw
+nUnitFlag += @thisx
+
+mUnit = @oct
+.int bindOne
+end @unit === null
+
+mOctPayload = @unit.@payloadType
+
+.do
+  .break mOctPayload == @quad
+  .break mOctPayload == @sei
+  .break mOctPayload == @aegires
+
+  # drop unwanted
+  .if mOctPayload !== null
+    yDrop = @thisy + 16
+    ucontrol move @thisx yDrop
+    ucontrol within @thisx yDrop 2 bWithin
+    .if bWithin
+      ucontrol payDrop
+    .fi
+    end
+  .fi
+
+  # find t4 reconstructor
+  iBlockPrev = iBlock
+  .do
+    dBlock = %iBlock
+
+    mBlock = dBlock.@type
+    .if mBlock == @exponential-reconstructor
+      mBlockPayload = dBlock.@payloadType
+      .do
+        .break mBlockPayload == @quad
+        .break mBlockPayload == @sei
+        .break mBlockPayload == @aegires
+        jump next
+      .until
+
+      xBlock = dBlock.@x
+      yBlock = dBlock.@y
+      ucontrol move xBlock yBlock
+      ucontrol within xBlock yBlock 3 bWithin
+      .if bWithin
+        ucontrol payTake false
+      .fi
+      end
+    .fi
+next:
+
+    iBlock += 1
+    iBlock %= @links
+  .when iBlock != iBlockPrev
+
+  # nothing, idle
+  ucontrol move @thisx @thisy
+
+  end
+.until
+
+# find t5 reconstructor
+iTargetPrev = iTarget
+.do
+  dTarget = %iTarget
+
+  mTarget = dTarget.@type
+  .if mTarget == @tetrative-reconstructor
+    mTargetPayload = dTarget.@payloadType
+    .if mTargetPayload === null
+      xTarget = dTarget.@x
+      yTarget = dTarget.@y
+      ucontrol move xTarget yTarget
+      ucontrol within xTarget yTarget 4 bWithin
+      .if bWithin
+        ucontrol payDrop
+      .fi
+      end
+    .fi
+  .fi
+
+  iTarget += 1
+  iTarget %= @links
+.when iTarget != iTargetPrev
+
+# failed, idle
+ucontrol move @thisx @thisy
+
+end
+
+
+.label bindOne mUnit nUnitFlag
+bindOne_uFirstUnit = null
+.while
+  bindOne_nCurUintFlag = @unit.@flag
+  .if bindOne_nCurUintFlag == nUnitFlag
+    bindOne_uController = @unit.@controller
+    .break bindOne_uController == @this
+    .if bindOne_uController == @unit
+      bindOne_nUnitControlled = @unit.@controlled
+      .break bindOne_nUnitControlled != @ctrlPlayer
+    .fi
+    ucontrol flag 0
+    jump bindOne_rebind
+  .fi
+
+  ubind mUnit
+  .break @unit === null
+
+  .if bindOne_uFirstUnit === null
+    bindOne_uFirstUnit = @unit
+  .elif bindOne_uFirstUnit == @unit
+bindOne_rebind:
+    .do
+      ubind mUnit
+      .break @unit === null
+      bindOne_nUnitControlled = @unit.@controlled
+    .until bindOne_nUnitControlled == 0
+    ucontrol flag nUnitFlag  # unit valid
+    .break
+  .fi
+.done
+.reti bindOne

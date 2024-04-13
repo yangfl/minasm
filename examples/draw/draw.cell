@@ -1,0 +1,31 @@
+左上角是X 0 Y 0，X轴向右，Y轴向下！！！
+代码示例：
+read bRunning cell1 0
+jump 上一行 notEqual bRunning 0
+# 可以写入各参数
+write 200 cell1 1
+write 200 cell1 2
+write 10 cell1 3
+write 10 cell1 4
+write 255 cell1 8
+# 写入操作码
+write 2 cell1 0
+
+0：操作码
+1：X
+2：Y
+3：第3参
+4：第4参
+5：第5参
+6：第6参
+7：第7参
+8：R
+9：G
+10：B
+11：255-A
+12：线条宽度
+
+line：操作码1，第3参，第4参
+rect：操作码2，第3参width，第4参height
+triangle：操作码6
+image：操作码-1，第3参image，第4参size，第5参rotation

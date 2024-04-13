@@ -1,0 +1,42 @@
+.if bInit == false
+  nThreshold = 1500
+  nDelay = 20000
+  tStart = @time
+  bInit = true
+.fi
+
+iUnit = 0
+jump detectCore @unit
+.do
+  lookup unit mUnit iUnit
+  iUnit += 1
+  ubind mUnit
+  .if @unit
+detectCore:
+    ulocate building core false null xCore yCore bCoreFound dCore
+    jump coreFound bCoreFound
+  .fi
+.when iUnit < @unitCount
+
+end
+
+coreFound:
+
+nDuration = @time - tStart
+end nDuration < nDelay
+tStart = @time
+
+iBlock = 0
+.do
+  dSorter = %iBlock
+  iBlock += 1
+  mItem = dSorter.@config
+
+  dSwitch = %iBlock
+  iBlock += 1
+
+  nItem = dCore.mItem
+  .if nItem > nThreshold
+    control enabled dSwitch true
+  .fi
+.until iBlock >= @links

@@ -1,0 +1,92 @@
+.do
+  dContainer = %0
+  mContainerType = dContainer.@type
+.until mContainerType == @container
+dCore = %1
+
+nContainerCapacity = dContainer.@itemCapacity
+
+mContainerMoreItem = null
+nContainerMoreItem = 0
+mCoreMoreItem = null
+nCoreMoreItem = 0
+
+.if switch1 !== null
+  bSwitch = switch1.@enabled
+  .if bSwitch == false
+    control enabled switch1 true
+    nState += 1
+    nState %= 3
+  .fi
+.fi
+
+print "[green]当前模式："
+.if nState == 1
+  print "装满模式"
+.elif nState == 2
+  print "只装矿物模式"
+.else
+  print "装2/3模式"
+.fi
+printflush message1
+
+.do
+  lookup item mItem i
+  nContainerItem = dContainer.mItem
+  .if nState == 1
+    nContainerItemCapacity = nContainerCapacity
+  .elif nState == 2
+    nContainerItemCapacity = 0
+    .do
+      .break i == 2
+      .break i == 3
+      .if i >= 9
+        .break i != 13
+      .fi
+      nContainerItemCapacity = nContainerCapacity
+    .until
+  .else
+    nContainerItemCapacity = nContainerCapacity * 0.667
+  .fi
+  nItemDiff = nContainerItem - nContainerItemCapacity
+  nItemDiff = abs nItemDiff
+
+  .if nItemDiff > 0
+    .if nContainerItem < nContainerItemCapacity
+      nCoreItem = dCore.mItem
+      nItemDiff = nItemDiff min nCoreItem
+      .if nItemDiff > nCoreMoreItem
+        mCoreMoreItem = mItem
+        nCoreMoreItem = nItemDiff
+      .fi
+    .else
+      .if nItemDiff > nContainerMoreItem
+        mContainerMoreItem = mItem
+        nContainerMoreItem = nItemDiff
+      .fi
+    .fi
+  .fi
+
+  i += 1
+.until i == @itemCount
+i = 0
+
+.if mContainerMoreItem === null
+  control enabled unloader1 false
+  control enabled unloader2 false
+.else
+  control config unloader1 mContainerMoreItem
+  control enabled unloader1 true
+  control config unloader2 mContainerMoreItem
+  control enabled unloader2 true
+.fi
+
+.if mCoreMoreItem === null
+  control enabled unloader3 false
+  control enabled unloader4 false
+.else
+  control config unloader3 mCoreMoreItem
+  control enabled unloader3 true
+  control config unloader4 mCoreMoreItem
+  control enabled unloader4 true
+.fi

@@ -1,0 +1,52 @@
+nSize = display1.@size
+nPixelHalf = nSize - 0.5
+nPixelHalf *= 16
+
+draw clear 86 86 102
+
+R = cell1[0]
+G = cell1[1]
+B = cell1[2]
+A = cell1[3]
+A = 255 - A
+draw color R G B A
+
+nStroke = cell1[4]
+.if nStroke <= 0
+  nStroke = 2
+.fi
+nStrokeHalf = nStroke / 2
+draw poly nPixelHalf nPixelHalf 100 nStrokeHalf
+drawflush display1
+
+nSizeHalf = nSize / 2
+xDisplay = display1.@x
+yDisplay = display1.@y
+
+radar player ally any distance @this 1 uNewPlayer
+.if uNewPlayer !== null
+  uPlayer = uNewPlayer
+.elif uPlayer === null
+  end
+.fi
+
+bShooting = uPlayer.@shooting
+end bShooting == false
+
+xShoot = uPlayer.@shootX
+x = xShoot - xDisplay
+absX = abs x
+end absX >= nSizeHalf
+yShoot = uPlayer.@shootY
+y = yShoot - yDisplay
+absY = abs y
+end absY >= nSizeHalf
+
+nStroke = x * x
+y2 = y * y
+nStroke += y2
+nStroke = sqrt nStroke
+nStroke *= 32
+nStroke = nStroke min nPixelHalf
+nStroke *= 2
+cell1[4] = nStroke

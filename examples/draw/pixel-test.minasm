@@ -1,0 +1,58 @@
+cell1[62] = 0x00ffffff
+
+x = 1
+y = 80 - 12
+# nState = 1
+nState = 3084  # 12 << 8 + 12
+
+dataPixel1 = 0x0007FE402904
+dataPixel2 = 0x1F81001FC004
+dataPixel3 = 0x7F4004028010
+.int writeChar
+
+.int waitChars
+end
+
+.label writeChar dataPixel1 dataPixel2 dataPixel3 x y i nState
+.do
+  i %= 10
+  writeChar_i = i * 6
+  i += 1
+
+  writeChar_nState = cell1[writeChar_i]
+  .continue writeChar_nState != 0
+
+  writeChar_i += 1
+  cell1[writeChar_i] = x
+  writeChar_i += 1
+  cell1[writeChar_i] = y
+  x += 12
+  .if x > 68
+    x = 1
+    y -= 12
+  .fi
+
+  writeChar_i += 1
+  cell1[writeChar_i] = dataPixel1
+  writeChar_i += 1
+  cell1[writeChar_i] = dataPixel2
+  writeChar_i += 1
+  cell1[writeChar_i] = dataPixel3
+  writeChar_i -= 5
+  cell1[writeChar_i] = nState
+.until
+.reti writeChar
+
+
+.label waitChars
+waitChars_i = 0
+.while
+  .do
+    waitChars_nState = cell1[waitChars_i]
+  .until waitChars_nState == 0
+
+  .if waitChars_i >= 58
+    .reti waitChars
+  .fi
+  waitChars_i += 6
+.done

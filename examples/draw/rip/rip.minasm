@@ -1,0 +1,434 @@
+y = 80 - 12
+x = 1
+.int mayDrawReason drawReason
+.int _writeChar_不 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_幸 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_的 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_， writeChar
+.int mayDrawReason drawReason
+.int _writeChar_此 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_人 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_已 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_无 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_法 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_与 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_我 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_们 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_互 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_动 writeChar
+
+y -= 24
+x = 1
+.int mayDrawReason drawReason
+.int _writeChar_死 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_因 writeChar
+x += 1
+draw rect x y 1 2
+y1 = y + 4
+draw rect x y1 1 2
+drawflush display1
+
+y -= 12
+x = 1
+.int mayDrawReason drawReason
+.int _writeChar_献 writeChar
+.int mayDrawReason drawReason
+.int _writeChar_花 writeChar
+x += 1
+draw rect x y 1 2
+y1 = y + 4
+draw rect x y1 1 2
+drawflush display1
+
+.int drawReason
+
+end
+
+.label mayDrawReason
+iDeathReason = cell1[61]
+.if iDeathReason != iDeathReasonPrev
+  iDeathReasonPrev = iDeathReason
+  draw color 86 86 102 255
+  draw rect 29 20 80 12
+  draw color 255 255 255 255
+  drawflush display1
+.label drawReason
+  drawReason_save_x = x
+  drawReason_save_y = y
+  y = 80 - 60
+  x = 29
+  .if iDeathReason == 0
+    .int _writeChar_写 writeChar
+    .int _writeChar_屑 writeChar
+    .int _writeChar_逻 writeChar
+    .int _writeChar_辑 writeChar
+  .elif iDeathReason == 1
+    .int _writeChar_画 writeChar
+    .int _writeChar_屑 writeChar
+    .int _writeChar_蓝 writeChar
+    .int _writeChar_图 writeChar
+  .elif iDeathReason == 2
+    .int _writeChar_调 writeChar
+    .int _writeChar_戏 writeChar
+    .int _writeChar_管 writeChar
+    .int _writeChar_理 writeChar
+  .elif iDeathReason == 3
+    .int _writeChar_拆 writeChar
+    .int _writeChar_物 writeChar
+    .int _writeChar_品 writeChar
+    .int _writeChar_源 writeChar
+  .elif iDeathReason == 4
+    .int _writeChar_玩 writeChar
+    .int _writeChar_核 writeChar
+    .int _writeChar_弹 writeChar
+  .elif iDeathReason == 5
+    .int _writeChar_p writeChar
+    x -= 4
+    .int _writeChar_v writeChar
+    x -= 4
+    .int _writeChar_p writeChar
+    x -= 4
+    .int _writeChar_太 writeChar
+    .int _writeChar_强 writeChar
+  .fi
+  .if y == 20
+    draw color 86 86 102 255
+    draw rect x y 80 12
+    draw color 255 255 255 255
+    drawflush display1
+  .fi
+  x = drawReason_save_x
+  y = drawReason_save_y
+.fi
+.reti drawReason
+
+
+.label _writeChar_不
+dataPixel1 = 0x000FFE020020
+dataPixel2 = 0x0400D0148244
+dataPixel3 = 0x442840040040
+jump writeChar
+
+.label _writeChar_幸
+dataPixel1 = 0x0000407FC040
+dataPixel2 = 0xFFE1100A07FC
+dataPixel3 = 0x040FFE040040
+jump writeChar
+
+.label _writeChar_的
+dataPixel1 = 0x0001102107BE
+dataPixel2 = 0x4C24827A2492
+dataPixel3 = 0x49248278248C
+jump writeChar
+
+.label _writeChar_，
+dataPixel1 = 0x000000000000
+dataPixel2 = 0x000000000000
+dataPixel3 = 0x0C00C0040080
+jump writeChar
+
+.label _writeChar_此
+dataPixel1 = 0x000110110112
+dataPixel2 = 0x5145D8510510
+dataPixel3 = 0x5105125D2E0E
+jump writeChar
+
+.label _writeChar_人
+dataPixel1 = 0x000040040040
+dataPixel2 = 0x0400400400A0
+dataPixel3 = 0x0A0110208C06
+jump writeChar
+
+.label _writeChar_已
+dataPixel1 = 0x0000007F8008
+dataPixel2 = 0x0084087F8400
+dataPixel3 = 0x4024024023FE
+jump writeChar
+
+.label _writeChar_无
+dataPixel1 = 0x0007FC040040
+dataPixel2 = 0x040FFE0A00A0
+dataPixel3 = 0x120122222C1E
+jump writeChar
+
+.label _writeChar_法
+dataPixel1 = 0x00041021007C
+dataPixel2 = 0x8104100FE210
+dataPixel3 = 0xC204444FA442
+jump writeChar
+
+.label _writeChar_与
+dataPixel1 = 0x0001001001FE
+dataPixel2 = 0x1001001FC004
+dataPixel3 = 0xFE4004004038
+jump writeChar
+
+.label _writeChar_我
+dataPixel1 = 0x0000A8724120
+dataPixel2 = 0xFFE1201A4328
+dataPixel3 = 0xD1013254A206
+jump writeChar
+
+.label _writeChar_们
+dataPixel1 = 0x00024022E4A2
+dataPixel2 = 0x482C82482482
+dataPixel3 = 0x482482482486
+jump writeChar
+
+.label _writeChar_互
+dataPixel1 = 0x000FFE080080
+dataPixel2 = 0x0F8108108108
+dataPixel3 = 0x3F0010010FFE
+jump writeChar
+
+.label _writeChar_动
+dataPixel1 = 0x000010790010
+dataPixel2 = 0x03EFD2212212
+dataPixel3 = 0x492FA20A204C
+jump writeChar
+
+.label _writeChar_死
+dataPixel1 = 0x000FFE100110
+dataPixel2 = 0x1D2254658950
+dataPixel3 = 0x090112212C0E
+jump writeChar
+
+.label _writeChar_因
+dataPixel1 = 0x000FFE842842
+dataPixel2 = 0xBFA8428428A2
+dataPixel3 = 0x912A0A802FFE
+jump writeChar
+
+.label _writeChar_:
+dataPixel1 = 0x000000000000
+dataPixel2 = 0x000000400400
+dataPixel3 = 0x000000400400
+jump writeChar
+
+.label _writeChar_写
+dataPixel1 = 0x0007FE402904
+dataPixel2 = 0x1F81001FC004
+dataPixel3 = 0x7F4004028010
+jump writeChar
+
+.label _writeChar_屑
+dataPixel1 = 0x0003FE2023FE
+dataPixel2 = 0x2922542FC284
+dataPixel3 = 0x2FC2844FC884
+jump writeChar
+
+.label _writeChar_逻
+dataPixel1 = 0x0004FE2AA2FE
+dataPixel2 = 0x020E7C284248
+dataPixel3 = 0x2302C05008FE
+jump writeChar
+
+.label _writeChar_辑
+dataPixel1 = 0x00023CFA443C
+dataPixel2 = 0x600A7EFA4234
+dataPixel3 = 0x3ACE262FC204
+jump writeChar
+
+.label _writeChar_画
+dataPixel1 = 0x000FFE0003F8
+dataPixel2 = 0xA4AA4ABFAA4A
+dataPixel3 = 0xA4ABFA802FFE
+jump writeChar
+
+.label _writeChar_蓝
+dataPixel1 = 0x000110FFE110
+dataPixel2 = 0x52053C550108
+dataPixel3 = 0x7FC4A44A4FFE
+jump writeChar
+
+.label _writeChar_图
+dataPixel1 = 0x0007FE4824FA
+dataPixel2 = 0x59266249274E
+dataPixel3 = 0x4224424227FE
+jump writeChar
+
+.label _writeChar_调
+dataPixel1 = 0x0004FE2920BA
+dataPixel2 = 0xE922FE2822BA
+dataPixel3 = 0x2AA3BA28210E
+jump writeChar
+
+.label _writeChar_戏
+dataPixel1 = 0x0000287A40A0
+dataPixel2 = 0x4FE2A0124128
+dataPixel3 = 0x29041286A006
+jump writeChar
+
+.label _writeChar_管
+dataPixel1 = 0x0002103DE528
+dataPixel2 = 0xFFE8023F8208
+dataPixel3 = 0x3FC2042043FC
+jump writeChar
+
+.label _writeChar_理
+dataPixel1 = 0x0000FEF922FE
+dataPixel2 = 0x292292FFE210
+dataPixel3 = 0x27C310C100FE
+jump writeChar
+
+.label _writeChar_拆
+dataPixel1 = 0x00020C270F40
+dataPixel2 = 0x27E24835864C
+dataPixel3 = 0xA4A248A88488
+jump writeChar
+
+.label _writeChar_物
+dataPixel1 = 0x000220A20A7E
+dataPixel2 = 0xFAAA2A32A64A
+dataPixel3 = 0xA9222225228C
+jump writeChar
+
+.label _writeChar_品
+dataPixel1 = 0x0001F8108108
+dataPixel2 = 0x1F800079E492
+dataPixel3 = 0x49249279E492
+jump writeChar
+
+.label _writeChar_源
+dataPixel1 = 0x0004FE2888BE
+dataPixel2 = 0x4A21BE2A22BE
+dataPixel3 = 0xC884AC54A69A
+jump writeChar
+
+.label _writeChar_玩
+dataPixel1 = 0x00003CF80200
+dataPixel2 = 0x20077E228228
+dataPixel3 = 0x3A8C2A04A186
+jump writeChar
+
+.label _writeChar_核
+dataPixel1 = 0x000210208FFE
+dataPixel2 = 0x210224778692
+dataPixel3 = 0xA242482142E2
+jump writeChar
+
+.label _writeChar_弹
+dataPixel1 = 0x000E442282FE
+dataPixel2 = 0xE928FE892EFE
+dataPixel3 = 0x2102FEA10410
+jump writeChar
+
+.label _writeChar_p
+dataPixel1 = 0x000000000000
+dataPixel2 = 0xF00880880880
+dataPixel3 = 0x880F00800800
+jump writeChar
+
+.label _writeChar_v
+dataPixel1 = 0x000000000000
+dataPixel2 = 0x000000880880
+dataPixel3 = 0x500500200200
+jump writeChar
+
+.label _writeChar_太
+dataPixel1 = 0x000040040040
+dataPixel2 = 0xFFE0400A00A0
+dataPixel3 = 0x110190248C46
+jump writeChar
+
+.label _writeChar_强
+dataPixel1 = 0x000E7C24427C
+dataPixel2 = 0xE108FE892E92
+dataPixel3 = 0x2FC21221ECF2
+jump writeChar
+
+.label _writeChar_献
+dataPixel1 = 0x000108FCC10A
+dataPixel2 = 0xFFEAC8948FC8
+dataPixel3 = 0x948FD49548E2
+jump writeChar
+
+.label _writeChar_花
+dataPixel1 = 0x000110FFE110
+dataPixel2 = 0x000124228630
+dataPixel3 = 0xA603A222221E
+jump writeChar
+
+
+.label writeChar dataPixel1 dataPixel2 dataPixel3 x y i nState
+draw color 86 86 102 255
+draw rect x y 12 12
+draw color 255 255 255 255
+
+# .label drawPixels dataPixel1 dataPixel2 dataPixel3 x y
+drawPixels_dataPixel = dataPixel3
+drawPixels_i = -1
+.while
+  drawPixels_i += 1
+  drawPixels_row = drawPixels_dataPixel & 0xfff
+  .if drawPixels_row != 0
+    drawPixels_y = y + drawPixels_i
+    drawPixels_x = x + 11
+    .do
+      drawPixels_j = log drawPixels_row
+      drawPixels_j //= 0.69314
+      drawPixels_x1 = drawPixels_x - drawPixels_j
+
+      drawPixels_rowPixel = 1 << drawPixels_j
+      drawPixels_rowTest = drawPixels_row - drawPixels_rowPixel
+      drawPixels_rowPixelNext = drawPixels_rowPixel >> 1
+      .if drawPixels_rowTest < drawPixels_rowPixelNext
+        draw rect drawPixels_x1 drawPixels_y 1 1
+        .break drawPixels_rowTest <= 0
+        drawPixels_row = drawPixels_rowTest
+        .continue
+      .fi
+
+      drawPixels_rowPixels = -2 << drawPixels_j
+      drawPixels_rowPixels = ~ drawPixels_rowPixels
+      .if drawPixels_rowPixels == drawPixels_row
+        drawPixels_w = drawPixels_j + 1
+        draw rect drawPixels_x1 drawPixels_y drawPixels_w 1
+        .break
+      .fi
+      drawPixels_row = drawPixels_rowPixels - drawPixels_row
+
+      drawPixels_j1 = log drawPixels_row
+      drawPixels_j1 //= 0.69314
+      drawPixels_w = drawPixels_j - drawPixels_j1
+
+      drawPixels_rowPixels = -2 << drawPixels_j1
+      drawPixels_rowPixels = ~ drawPixels_rowPixels
+      drawPixels_row = drawPixels_rowPixels - drawPixels_row
+
+      draw rect drawPixels_x1 drawPixels_y drawPixels_w 1
+    .when drawPixels_row > 0
+  .fi
+
+  .if drawPixels_i == 3
+    drawPixels_dataPixel = dataPixel2
+  .elif drawPixels_i == 7
+    drawPixels_dataPixel = dataPixel1
+  .elif drawPixels_i >= 11
+    .break
+  .else
+    drawPixels_dataPixel >>= 12
+  .fi
+.done
+drawflush display1
+# .reti drawPixels
+
+x += 12
+.if x > 68
+  x = 1
+  y -= 12
+.fi
+.reti writeChar

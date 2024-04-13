@@ -1,0 +1,11 @@
+end switch1 === null
+bSwitch = switch1.@enabled
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+  .if dBlock != switch1
+    control enabled dBlock bSwitch
+  .fi
+.when i < @links

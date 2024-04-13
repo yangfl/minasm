@@ -1,0 +1,19 @@
+print "by：[orange]awa[]\n卖物品逻辑"
+printflush message1
+
+.do
+  dCore = %i
+  i += 1
+  i %= @links
+  nCapacity = dCore.@itemCapacity
+.until nCapacity >= 300
+
+i = 0
+.do
+  dBlock = %i
+  i += 1
+  mItem = dBlock.@config
+  nItem = dCore.mItem
+  bEnabled = nItem > 1000
+  control enabled dBlock bEnabled
+.when i < @links
