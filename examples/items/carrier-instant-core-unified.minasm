@@ -1,12 +1,9 @@
 .if bInit == false
   print "光传核心，可串联！"
-  print "(仓库距离不要超过14)"
+  print "(仓库中心直线距离不要超过14)"
   print "1.改一个和其他光传组不同的 flag，设定单位"
   print "2.母体逻辑 先 连接 近 核心容器，后 连接 远 核心容器"
   print "3.等看到单位开始执行时，单独复制 无 连接建筑的小处理器即可"
-
-  nFlag = 4444
-  nFlag &= 262143
 
   .do
     ubind @zenith
@@ -17,6 +14,9 @@
   nTakeFromCore = 100
   nPutToCore = 500
   nTakeFromRemote = 700
+
+  nProgramHash = 12
+  nProgramHash &= 63
 
   printflush message1
   bInit = true
@@ -45,7 +45,7 @@ bDead = uTarget.@dead
     .until @unit !== null
 
     nFlagTest = @unit.@flag
-    nFlagTest &= 262143
+    nFlagTest >>= 40
     .if nFlagTest == nFlag
       uTarget = @unit
       .break
@@ -75,7 +75,8 @@ bDead = uTarget.@dead
 
           uTarget = @unit
 
-          ucontrol flag nFlag
+          nThisFlag = nFlag << 40
+          ucontrol flag nThisFlag
           jump binded
         .until
 
@@ -99,7 +100,7 @@ iUnitDecoder -= 1
   iUnitDecoder = 32
 
   nUnitFlag = uTarget.@flag
-  nFlagTest &= 262143
+  nFlagTest = nUnitFlag >> 40
   .if nFlagTest != nFlag
     uTarget = null
     .if bMaster
@@ -123,14 +124,16 @@ iUnitDecoder -= 1
     dy = y2 - y1
     dy += 64
 
-    nFlagTmp = x1 << 10
-    nFlagTmp |= y1
-    nFlagTmp <<= 7
-    nFlagTmp |= dx
-    nFlagTmp <<= 7
-    nCmdFlag = nFlagTmp | dy
-    nCmdFlagShifted = nCmdFlag << 18
-    nUnitFlag = nCmdFlagShifted | nFlag
+    nThisFlag = nFlag << 6
+    nThisFlag |= 63
+    nThisFlag <<= 10
+    nThisFlag |= x1
+    nThisFlag <<= 10
+    nThisFlag |= y1
+    nThisFlag <<= 7
+    nThisFlag |= dx
+    nThisFlag <<= 7
+    nUnitFlag = nThisFlag | dy
 
     ucontrol flag nUnitFlag
 
@@ -139,13 +142,14 @@ iUnitDecoder -= 1
     ym = y1 + y2
     ym = ym / 2
   .else
-    nCmdFlag = nUnitFlag >> 18
-    dy = nCmdFlag & 127
-    nFlagTmp = nCmdFlag >> 7
-    dx = nFlagTmp & 127
-    nFlagTmp >>= 7
-    y1 = nFlagTmp & 1023
-    x1 = nFlagTmp >> 10
+    dy = nUnitFlag & 127
+    nThisFlag = nUnitFlag >> 7
+    dx = nThisFlag & 127
+    nThisFlag >>= 7
+    y1 = nThisFlag & 1023
+    nThisFlag >>= 10
+    x1 = nThisFlag & 1023
+    nThisFlag >>= 10
 
     dx -= 64
     dy -= 64

@@ -614,7 +614,7 @@ function matrix2rectsGreedy (
   const right_ = right >= 0 ? right : width
   const bottom_ = bottom >= 0 ? bottom : height
   if (left >= right_ || top >= bottom_) {
-    return []
+    return [[], matrix.slice()]
   }
 
   const width_ = right_ - left
@@ -695,7 +695,7 @@ function matrix2rectsOverlapping (
   const right_ = right >= 0 ? right : width
   const bottom_ = bottom >= 0 ? bottom : height
   if (left >= right_ || top >= bottom_) {
-    return []
+    return [[], matrix.slice()]
   }
 
   const width_ = right_ - left
@@ -2133,7 +2133,15 @@ function applySettings (form) {
 
 applySettings(form)
 
-form.addEventListener('change', async function (event) {
+form.addEventListener('change', function (event) {
+  handleImageChange(event).catch(function (e) {
+    console.error(e)
+    const output = event.target.form.elements['output']
+    output.value = '// image2logic failed: ' + e
+  })
+})
+
+async function handleImageChange (event) {
   // save keys
   /** @type {HTMLInputElement} */
   const target = event.target
@@ -2307,4 +2315,4 @@ form.addEventListener('change', async function (event) {
   ctx.fillStyle = 'white'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.putImageData(imageData, 0, 0)
-})
+}

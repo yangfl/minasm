@@ -143,7 +143,7 @@ function (name, requires, factory, onExist = 'warn') {
       'enabled', 'shoot', 'shootp', 'config', 'color',
     ],
     radar: [
-      'any', 'enemy', 'ally', 'player', 'attacker', 'flying', 'boss', 'groud',
+      'any', 'enemy', 'ally', 'player', 'attacker', 'flying', 'boss', 'ground',
     ],
     op: [
       'add', 'sub', 'mul', 'div',
@@ -221,11 +221,12 @@ function (name, requires, factory, onExist = 'warn') {
     ],
     setmarker: [
       'remove', 'world', 'minimap',
+      'light',
       'autoscale', 'pos', 'endPos',
       'drawLayer', 'color', 'radius',
-      'stroke', 'rotation', 'shapr',
+      'stroke', 'outline', 'rotation', 'shape',
       'arc', 'flushText', 'fontSize',
-      'textHeight', 'labelFalgs', 'texture',
+      'textHeight', 'textAlign', 'lineAlign', 'labelFlags', 'texture',
       'textureSize', 'posi', 'uvi',
       'colori',
     ],
@@ -608,7 +609,7 @@ function (name, requires, factory, onExist = 'warn') {
     static fromString (str, lineNumber = -1) {
       return new Line(
         Array.from(Token.split(str)).map(x => x[1]),
-        str.match(/^\s+/)?.[0] || undefined, lineNumber)
+        str.match(/^\s+/)?.[0] || '', lineNumber)
     }
 
     toString () {
@@ -840,7 +841,7 @@ function (name, requires, factory, onExist = 'warn') {
      * @returns {number}
      */
     static distance (a, b) {
-      return 128 * (a.index - b.index) + (a.subindex - b.subindex)
+      return 65536 * (a.index - b.index) + (a.subindex - b.subindex)
     }
 
     /**
@@ -937,9 +938,7 @@ function (name, requires, factory, onExist = 'warn') {
         if (tokens.length >= 5 && tokens[4].toString() !== '=') {
           return null
         }
-        if (tokens[5]) {
-          args.unshift(tokens[5])
-        }
+        args.unshift(tokens[5] || Token.ZERO)
         return ['write', args.concat(tokens.slice(6))]
       }
 
@@ -952,6 +951,7 @@ function (name, requires, factory, onExist = 'warn') {
         if (tokens.length === 2) {
           // x =
           // 0 1
+          args.push(Token.ZERO)
           return ['set', args]
         }
         const token2Str = tokens[2].toString()
@@ -1011,7 +1011,7 @@ function (name, requires, factory, onExist = 'warn') {
     /**
      * Decode Minasm statement to Mindustry instruction.
      * @param {Token[]} tokens Minasm statement.
-     * @returns {[string, Token[], Token?]}
+     * @returns {[string, Token[], Token?]?}
      *  Mindustry instruction operator, arguments, and label of branch target if
      *  instruction is a jump.
      */
@@ -1810,7 +1810,14 @@ function (name, requires, factory, onExist = 'warn') {
             }
           } else {
             // process normal instructions
-            const [op, args, branch] = Instruction.decode(tokens)
+            const decoded = Instruction.decode(tokens)
+            if (!decoded) {
+              throw new CompilerError('invalid statement', i)
+            }
+            const [op, args, branch] = decoded
+            if (op === 'jump' && !branch) {
+              throw new CompilerError('jump without target', i)
+            }
             const inst = new Instruction(op, args, line)
             if (branch) {
               inst.branch = branch
@@ -1839,7 +1846,13 @@ function (name, requires, factory, onExist = 'warn') {
               const option = tokens[i].toString()
               const ind = option.indexOf('=')
               if (ind >= 0) {
-                program.options[option.slice(0, ind)] = option.slice(ind + 1)
+                let value = option.slice(ind + 1)
+                if (value === 'true') {
+                  value = true
+                } else if (value === 'false') {
+                  value = false
+                }
+                program.options[option.slice(0, ind)] = value
               } else if (option.startsWith('no-')) {
                 delete program.options[option.slice(3)]
               } else {
@@ -1868,6 +1881,9 @@ function (name, requires, factory, onExist = 'warn') {
             program.resetRelinsts(i - 1, token2?.toNumber() || 0)
             break
           case 'entry':
+            if (!program.tail) {
+              throw new CompilerError('no instruction before .entry', i)
+            }
             program.tail.keepNext = true
             break
           // stack push pop
@@ -2262,7 +2278,7 @@ function (name, requires, factory, onExist = 'warn') {
                        Token.COUNTER, token2], line) :
               new Instruction('jump', [Instruction.NEVER], line)
             program.push(inst)
-            program.addBlock('case', inst)
+            program.addBlock('case', inst, [], program.noOptimize)
             program.noOptimize = true
 
             break
@@ -2279,7 +2295,7 @@ function (name, requires, factory, onExist = 'warn') {
           }
           case 'esac': {
             const block = program.testBlock('case', 'esac', i)
-            program.noOptimize = false
+            program.noOptimize = block.data ?? false
 
             program.endBlock()
             break

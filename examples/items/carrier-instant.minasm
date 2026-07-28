@@ -7,7 +7,7 @@
   print "4.等看到单位开始执行时，单独复制 无 连接建筑的小处理器即可"
 
   nFlag = 1111
-  nFlag &= 8191
+  nFlag &= 4095
 
   .do
     ubind @zenith
@@ -17,6 +17,7 @@
   nOffset = 0
 
   printflush message1
+  nFlagShifted = nFlag << 6
   bInit = true
 .fi
 
@@ -37,8 +38,9 @@ bMaster = @links >= 4
   mItem = sorter1.@config
   end mItem === null
   nItemId = mItem.@id
-  nFlag = 8 * nItemId
+  nFlag = nItemId << 3
   nFlag += nOffset
+  nFlagShifted = nFlag << 6
 .fi
 
 bDead = uTarget.@dead
@@ -51,8 +53,8 @@ bDead = uTarget.@dead
     .until @unit !== null
 
     nFlagTest = @unit.@flag
-    nFlagTest >>= 40
-    .if nFlagTest == nFlag
+    nFlagTest &= 262080
+    .if nFlagTest == nFlagShifted
       uTarget = @unit
       .break
     .fi
@@ -81,8 +83,7 @@ bDead = uTarget.@dead
 
           uTarget = @unit
 
-          nThisFlag = nFlag << 40
-          ucontrol flag nThisFlag
+          ucontrol flag nFlagShifted
           jump binded
         .until
 
@@ -106,8 +107,8 @@ iUnitDecoder -= 1
   iUnitDecoder = 32
 
   nUnitFlag = uTarget.@flag
-  nFlagTest = nUnitFlag >> 40
-  .if nFlagTest != nFlag
+  nFlagTest &= 262080
+  .if nFlagTest != nFlagShifted
     uTarget = null
     .if bMaster
       ucontrol flag 0
@@ -136,16 +137,15 @@ iUnitDecoder -= 1
       nItemId = mItem.@id
     .fi
 
-    nThisFlag = nFlag << 10
-    nThisFlag |= x1
-    nThisFlag <<= 10
-    nThisFlag |= y1
-    nThisFlag <<= 7
-    nThisFlag |= dx
-    nThisFlag <<= 7
-    nThisFlag |= dy
-    nThisFlag <<= 6
-    nUnitFlag = nThisFlag | nItemId
+    nFlagTmp = x1 << 10
+    nFlagTmp |= y1
+    nFlagTmp <<= 7
+    nFlagTmp |= dx
+    nFlagTmp <<= 7
+    nCmdFlag = nFlagTmp | dy
+    nCmdFlagShifted = nCmdFlag << 18
+    nFlagTmp = nCmdFlag | nFlagShifted
+    nUnitFlag = nFlagTmp | nItemId
 
     ucontrol flag nUnitFlag
 
@@ -154,15 +154,13 @@ iUnitDecoder -= 1
     ym = y1 + y2
     ym = ym / 2
   .else
-    nThisFlag = nUnitFlag >> 6
-    dy = nThisFlag & 127
-    nThisFlag >>= 7
-    dx = nThisFlag & 127
-    nThisFlag >>= 7
-    y1 = nThisFlag & 1023
-    nThisFlag >>= 10
-    x1 = nThisFlag & 1023
-    nThisFlag >>= 10
+    nCmdFlag = nUnitFlag >> 18
+    dy = nCmdFlag & 127
+    nFlagTmp = nCmdFlag >> 7
+    dx = nFlagTmp & 127
+    nFlagTmp >>= 7
+    y1 = nFlagTmp & 1023
+    x1 = nFlagTmp >> 10
 
     dx -= 64
     dy -= 64
